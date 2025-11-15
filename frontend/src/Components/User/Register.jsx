@@ -128,7 +128,9 @@ const Register = () => {
     };
 
     const handleFacebookLogin = async (response) => {
-        if (response.accessToken) {
+        console.log('Facebook response:', response);
+        
+        if (response?.id) {
             try {
                 setLoading(true);
                 
@@ -143,8 +145,8 @@ const Register = () => {
                     {
                         email: response.email,
                         name: response.name,
-                        facebookId: response.userID,
-                        avatar: response.picture?.data?.url
+                        facebookId: response.id,
+                        avatar: response.picture?.data?.url || `https://graph.facebook.com/${response.id}/picture?type=large`
                     },
                     config
                 );
@@ -155,10 +157,11 @@ const Register = () => {
                 });
             } catch (error) {
                 console.error('Facebook Sign-In Error:', error);
-                toast.error('Facebook Sign-In failed. Please try again.');
+                toast.error(error.response?.data?.message || 'Facebook Sign-In failed. Please try again.');
                 setLoading(false);
             }
         } else {
+            console.error('Facebook login cancelled or failed:', response);
             toast.error('Facebook Sign-In was cancelled.');
         }
     };
