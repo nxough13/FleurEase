@@ -61,6 +61,12 @@ exports.getSingleProduct = async (req, res, next) => {
             message: 'Product not found'
         })
     }
+    if (!product.isActive) {
+        return res.status(404).json({
+            success: false,
+            message: 'Product is not available'
+        })
+    }
     return res.status(200).json({
         success: true,
         product
@@ -166,9 +172,9 @@ exports.deleteProduct = async (req, res, next) => {
 exports.getProducts = async (req, res) => {
 
     const resPerPage = 4;
-    const productsCount = await Product.countDocuments();
+    const productsCount = await Product.countDocuments({ isActive: true });
 
-    const apiFeatures = new APIFeatures(Product.find(), req.query).search().filter()
+    const apiFeatures = new APIFeatures(Product.find({ isActive: true }), req.query).search().filter()
     
     // Add category filter
     if (req.query.category) {

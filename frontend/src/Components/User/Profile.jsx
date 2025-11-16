@@ -15,7 +15,7 @@ const Profile = () => {
         fetchUserProfile();
     }, []);
 
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = async (retries = 3) => {
         try {
             const config = {
                 headers: {
@@ -27,8 +27,24 @@ const Profile = () => {
             setUser(data.user);
             setLoading(false);
         } catch (error) {
-            toast.error('Error loading profile');
-            setLoading(false);
+            console.error('Error loading profile:', error);
+            
+            // If fetch fails, try to use cached user data from sessionStorage
+            const cachedUser = getUser();
+            if (cachedUser) {
+                setUser(cachedUser);
+                setLoading(false);
+                toast.info('Showing cached profile data');
+            } else if (retries > 0) {
+                // Retry after a short delay
+                console.log(`Retrying profile fetch... (${retries} retries left)`);
+                setTimeout(() => {
+                    fetchUserProfile(retries - 1);
+                }, 1000);
+            } else {
+                toast.error('Error loading profile');
+                setLoading(false);
+            }
         }
     };
 

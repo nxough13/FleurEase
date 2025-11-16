@@ -100,15 +100,25 @@ const UpdateProfile = () => {
                 config
             );
 
-            // Update sessionStorage with new user data
-            authenticate(data, () => {
-                toast.success('Profile updated successfully');
-                navigate('/me');
-            });
+            if (data.success && data.user) {
+                // Update sessionStorage with new user data
+                authenticate(data, () => {
+                    setLoading(false);
+                    toast.success('Profile updated successfully');
+                    // Small delay to ensure sessionStorage is updated before navigation
+                    setTimeout(() => {
+                        navigate('/me');
+                    }, 500);
+                });
+            } else {
+                setLoading(false);
+                toast.error('Failed to update profile');
+            }
 
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Error updating profile');
             setLoading(false);
+            console.error('Update profile error:', error);
+            toast.error(error.response?.data?.message || 'Error updating profile');
         }
     };
 
@@ -145,7 +155,14 @@ const UpdateProfile = () => {
                                 boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
                                 padding: '40px'
                             }}>
-                                <form onSubmit={submitHandler} encType='multipart/form-data'>
+                                <Formik
+                                    enableReinitialize
+                                    initialValues={initialValues}
+                                    validationSchema={updateProfileSchema}
+                                    onSubmit={submitHandler}
+                                >
+                                    {({ values, errors, touched }) => (
+                                        <Form encType='multipart/form-data'>
                                     {/* Avatar Upload */}
                                     <div className="form-group text-center" style={{ marginBottom: '30px' }}>
                                         <div style={{ marginBottom: '20px' }}>
@@ -187,16 +204,10 @@ const UpdateProfile = () => {
                                             <i className="fa fa-user mr-2" style={{ color: '#6b46c1' }}></i>
                                             Full Name
                                         </label>
-                                        <input
+                                        <Field
                                             type="text"
-                                            className="form-control"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            required
-                                            minLength="2"
-                                            maxLength="50"
-                                            pattern="[A-Za-z\s]+"
-                                            title="Name must be 2-50 characters (letters and spaces only)"
+                                            name="name"
+                                            className={`form-control ${errors.name && touched.name ? 'is-invalid' : ''}`}
                                             style={{
                                                 padding: '12px 15px',
                                                 borderRadius: '8px',
@@ -204,6 +215,7 @@ const UpdateProfile = () => {
                                                 fontSize: '1rem'
                                             }}
                                         />
+                                        <ErrorMessage name="name" component="div" className="text-danger" style={{ fontSize: '0.875rem', marginTop: '5px' }} />
                                     </div>
 
                                     {/* Email */}
@@ -212,10 +224,10 @@ const UpdateProfile = () => {
                                             <i className="fa fa-envelope mr-2" style={{ color: '#6b46c1' }}></i>
                                             Email Address
                                         </label>
-                                        <input
+                                        <Field
                                             type="email"
+                                            name="email"
                                             className="form-control"
-                                            value={email}
                                             readOnly
                                             disabled
                                             style={{
@@ -240,15 +252,11 @@ const UpdateProfile = () => {
                                             <i className="fa fa-phone mr-2" style={{ color: '#6b46c1' }}></i>
                                             Phone Number
                                         </label>
-                                        <input
+                                        <Field
                                             type="tel"
-                                            className="form-control"
-                                            value={phoneNo}
-                                            onChange={(e) => setPhoneNo(e.target.value)}
+                                            name="phoneNo"
+                                            className={`form-control ${errors.phoneNo && touched.phoneNo ? 'is-invalid' : ''}`}
                                             placeholder="09XXXXXXXXX"
-                                            pattern="[0-9]{10,11}"
-                                            title="Phone number must be 10-11 digits (numbers only)"
-                                            maxLength="11"
                                             style={{
                                                 padding: '12px 15px',
                                                 borderRadius: '8px',
@@ -256,6 +264,7 @@ const UpdateProfile = () => {
                                                 fontSize: '1rem'
                                             }}
                                         />
+                                        <ErrorMessage name="phoneNo" component="div" className="text-danger" style={{ fontSize: '0.875rem', marginTop: '5px' }} />
                                     </div>
 
                                     {/* Address */}
@@ -264,15 +273,11 @@ const UpdateProfile = () => {
                                             <i className="fa fa-home mr-2" style={{ color: '#6b46c1' }}></i>
                                             Street Address
                                         </label>
-                                        <input
+                                        <Field
                                             type="text"
+                                            name="address"
                                             className="form-control"
-                                            value={address}
-                                            onChange={(e) => setAddress(e.target.value)}
                                             placeholder="Enter your street address"
-                                            minLength="10"
-                                            maxLength="200"
-                                            title="Address must be between 10 and 200 characters"
                                             style={{
                                                 padding: '12px 15px',
                                                 borderRadius: '8px',
@@ -290,11 +295,10 @@ const UpdateProfile = () => {
                                                     <i className="fa fa-building mr-2" style={{ color: '#6b46c1' }}></i>
                                                     City
                                                 </label>
-                                                <input
+                                                <Field
                                                     type="text"
+                                                    name="city"
                                                     className="form-control"
-                                                    value={city}
-                                                    onChange={(e) => setCity(e.target.value)}
                                                     placeholder="Enter your city"
                                                     style={{
                                                         padding: '12px 15px',
@@ -311,15 +315,11 @@ const UpdateProfile = () => {
                                                     <i className="fa fa-map-marker mr-2" style={{ color: '#6b46c1' }}></i>
                                                     Postal Code
                                                 </label>
-                                                <input
+                                                <Field
                                                     type="text"
+                                                    name="postalCode"
                                                     className="form-control"
-                                                    value={postalCode}
-                                                    onChange={(e) => setPostalCode(e.target.value)}
                                                     placeholder="Enter 4-digit postal code"
-                                                    pattern="[0-9]{4}"
-                                                    title="Postal code must be 4 digits"
-                                                    maxLength="4"
                                                     style={{
                                                         padding: '12px 15px',
                                                         borderRadius: '8px',
@@ -382,7 +382,9 @@ const UpdateProfile = () => {
                                             Cancel
                                         </button>
                                     </div>
-                                </form>
+                                        </Form>
+                                    )}
+                                </Formik>
                             </div>
                         </div>
                     </div>

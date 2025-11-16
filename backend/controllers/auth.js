@@ -125,6 +125,13 @@ exports.googleLogin = async (req, res, next) => {
         let user = await User.findOne({ email });
 
         if (user) {
+            // Check if user is suspended
+            if (user.isSuspended) {
+                return res.status(403).json({ 
+                    success: false,
+                    message: `Your account has been suspended. Reason: ${user.suspensionReason || 'Policy violation'}` 
+                })
+            }
             // User exists, just login
             console.log('Existing user found, logging in:', user._id);
         } else {
@@ -172,6 +179,13 @@ exports.facebookLogin = async (req, res, next) => {
         let user = await User.findOne({ email });
 
         if (user) {
+            // Check if user is suspended
+            if (user.isSuspended) {
+                return res.status(403).json({ 
+                    success: false,
+                    message: `Your account has been suspended. Reason: ${user.suspensionReason || 'Policy violation'}` 
+                })
+            }
             // User exists, just login
             console.log('Existing user found, logging in:', user._id);
         } else {
@@ -221,6 +235,14 @@ exports.loginUser = async (req, res, next) => {
     let user = await User.findOne({ email }).select('+password')
     if (!user) {
         return res.status(401).json({ message: 'Invalid Email or Password' })
+    }
+
+    // Check if user is suspended
+    if (user.isSuspended) {
+        return res.status(403).json({ 
+            success: false,
+            message: `Your account has been suspended. Reason: ${user.suspensionReason || 'Policy violation'}` 
+        })
     }
 
     // Check if user is verified (skip for Google users)
@@ -313,56 +335,92 @@ exports.resetPassword = async (req, res, next) => {
 }
 
 exports.getUserProfile = async (req, res, next) => {
-    const user = await User.findById(req.user.id);
-    console.log(user)
+    try {
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
 
-    return res.status(200).json({
-        success: true,
-        user
-    })
+        return res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching user profile'
+        });
+    }
 }
 
 exports.updateProfile = async (req, res, next) => {
+    try {
+        const newUserData = {
+            name: req.body.name,
+            email: req.body.email,
+            address: req.body.address || '',
+            city: req.body.city || '',
+            postalCode: req.body.postalCode || '',
+            phoneNo: req.body.phoneNo || ''
+        }
 
-    const newUserData = {
-        name: req.body.name,
-        email: req.body.email,
-        address: req.body.address || '',
-        city: req.body.city || '',
-        postalCode: req.body.postalCode || '',
-        phoneNo: req.body.phoneNo || ''
-    }
+        // Update avatar
+        if (req.body.avatar !== '') {
+            try {
+                let user = await User.findById(req.user.id)
+                
+                if (user && user.avatar && user.avatar.public_id) {
+                    const image_id = user.avatar.public_id;
+                    await cloudinary.v2.uploader.destroy(image_id);
+                }
+                
+                const result = await cloudinary.v2.uploader.upload(req.body.avatar, {
+                    folder: 'avatars',
+                    width: 150,
+                    crop: "scale"
+                })
 
-    // Update avatar
-    if (req.body.avatar !== '') {
-        let user = await User.findById(req.user.id)
-        
-        const image_id = user.avatar.public_id;
-        const res = await cloudinary.v2.uploader.destroy(image_id);
-        
-        const result = await cloudinary.v2.uploader.upload(req.body.avatar, {
-            folder: 'avatars',
-            width: 150,
-            crop: "scale"
+                newUserData.avatar = {
+                    public_id: result.public_id,
+                    url: result.secure_url
+                }
+            } catch (uploadError) {
+                console.error('Avatar upload error:', uploadError);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error uploading avatar'
+                });
+            }
+        }
+
+        const user = await User.findByIdAndUpdate(req.user.id, newUserData, {
+            new: true,
+            runValidators: true,
         })
 
-        newUserData.avatar = {
-            public_id: result.public_id,
-            url: result.secure_url
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            })
         }
-    }
-    const user = await User.findByIdAndUpdate(req.user.id, newUserData, {
-        new: true,
-        runValidators: true,
-    })
-    if (!user) {
-        return res.status(401).json({ message: 'User Not Updated' })
-    }
 
-    return res.status(200).json({
-        success: true,
-        user
-    })
+        return res.status(200).json({
+            success: true,
+            user
+        })
+    } catch (error) {
+        console.error('Update profile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Error updating profile'
+        });
+    }
 }
 
 exports.updatePassword = async (req, res, next) => {

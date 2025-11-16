@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import axios from 'axios';
 import { getToken } from '../../Utils/helpers';
 import { toast } from 'react-toastify';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
 
 const Dashboard = () => {
@@ -375,20 +375,18 @@ const Dashboard = () => {
                                 <div className="col-xl-3 col-sm-6 mb-3">
                                     <div className="card text-white o-hidden h-100" style={{ 
                                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(102, 126, 234, 0.4)',
-                                        border: 'none',
-                                        transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Total Sales</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}</div>
-                                                </div>
-                                                <i className="fa fa-arrow-up" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
+                                        borderRadius: '15px',
+                                        boxShadow: '0 4px 6px rgba(107, 70, 193, 0.3)'
+                                    }}>
+                                        <div className="card-body">
+                                            <div className="text-center card-font-size">
+                                                Total Sales<br /> 
+                                                <b>${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}</b>
+                                                {startDate && endDate && (
+                                                    <div style={{ fontSize: '0.75rem', marginTop: '5px', opacity: 0.9 }}>
+                                                        (Filtered)
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -397,25 +395,25 @@ const Dashboard = () => {
                                 <div className="col-xl-3 col-sm-6 mb-3">
                                     <div className="card text-white o-hidden h-100" style={{ 
                                         background: 'linear-gradient(135deg, #9f7aea 0%, #6b46c1 100%)',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(159, 122, 234, 0.4)',
-                                        border: 'none',
-                                        transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Orders</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{startDate && endDate ? filteredOrders.length : (orders && orders.length)}</div>
-                                                </div>
-                                                <i className="fa fa-shopping-cart" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
+                                        borderRadius: '15px',
+                                        boxShadow: '0 4px 6px rgba(159, 122, 234, 0.3)'
+                                    }}>
+                                        <div className="card-body">
+                                            <div className="text-center card-font-size">
+                                                Orders<br /> 
+                                                <b>{startDate && endDate ? filteredOrders.length : (orders && orders.length)}</b>
+                                                {startDate && endDate && (
+                                                    <div style={{ fontSize: '0.75rem', marginTop: '5px', opacity: 0.9 }}>
+                                                        (Filtered)
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/orders" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
+                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/orders">
                                             <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                            <span className="float-right">
+                                                <i className="fa fa-angle-right"></i>
+                                            </span>
                                         </Link>
                                     </div>
                                 </div>
@@ -423,25 +421,20 @@ const Dashboard = () => {
                                 <div className="col-xl-3 col-sm-6 mb-3">
                                     <div className="card text-white o-hidden h-100" style={{ 
                                         background: 'linear-gradient(135deg, #c084fc 0%, #9f7aea 100%)',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(192, 132, 252, 0.4)',
-                                        border: 'none',
-                                        transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Products</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{products && products.length}</div>
-                                                </div>
-                                                <i className="fa fa-box" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
+                                        borderRadius: '15px',
+                                        boxShadow: '0 4px 6px rgba(192, 132, 252, 0.3)'
+                                    }}>
+                                        <div className="card-body">
+                                            <div className="text-center card-font-size">
+                                                Products<br /> 
+                                                <b>{products && products.length}</b>
                                             </div>
                                         </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/products" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
+                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/products">
                                             <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                            <span className="float-right">
+                                                <i className="fa fa-angle-right"></i>
+                                            </span>
                                         </Link>
                                     </div>
                                 </div>
@@ -449,25 +442,20 @@ const Dashboard = () => {
                                 <div className="col-xl-3 col-sm-6 mb-3">
                                     <div className="card text-white o-hidden h-100" style={{ 
                                         background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
-                                        borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(167, 139, 250, 0.4)',
-                                        border: 'none',
-                                        transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Users</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{users && users.length}</div>
-                                                </div>
-                                                <i className="fa fa-users" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
+                                        borderRadius: '15px',
+                                        boxShadow: '0 4px 6px rgba(167, 139, 250, 0.3)'
+                                    }}>
+                                        <div className="card-body">
+                                            <div className="text-center card-font-size">
+                                                Users<br /> 
+                                                <b>{users && users.length}</b>
                                             </div>
                                         </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/users" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
+                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/users">
                                             <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                            <span className="float-right">
+                                                <i className="fa fa-angle-right"></i>
+                                            </span>
                                         </Link>
                                     </div>
                                 </div>
@@ -488,27 +476,20 @@ const Dashboard = () => {
                                             </h4>
                                             {(startDate && endDate ? filteredMonthlySales : monthlySales).length > 0 ? (
                                                 <ResponsiveContainer width="100%" height={300}>
-                                                    <AreaChart data={startDate && endDate ? filteredMonthlySales : monthlySales}>
-                                                        <defs>
-                                                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#6b46c1" stopOpacity={0.3}/>
-                                                                <stop offset="95%" stopColor="#6b46c1" stopOpacity={0}/>
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                                        <XAxis dataKey="month" stroke="#999" />
-                                                        <YAxis stroke="#999" />
-                                                        <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }} formatter={(value) => `$${value.toFixed(2)}`} />
-                                                        <Area 
+                                                    <LineChart data={startDate && endDate ? filteredMonthlySales : monthlySales}>
+                                                        <CartesianGrid strokeDasharray="3 3" />
+                                                        <XAxis dataKey="month" />
+                                                        <YAxis />
+                                                        <Tooltip />
+                                                        <Legend />
+                                                        <Line 
                                                             type="monotone" 
                                                             dataKey="total" 
                                                             stroke="#6b46c1" 
-                                                            strokeWidth={2}
-                                                            fillOpacity={1}
-                                                            fill="url(#colorSales)"
+                                                            strokeWidth={3}
                                                             name="Sales ($)"
                                                         />
-                                                    </AreaChart>
+                                                    </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (
                                                 <p className="text-center">No sales data available yet</p>
