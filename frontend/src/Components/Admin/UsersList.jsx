@@ -8,6 +8,7 @@ import axios from 'axios';
 import { getToken } from '../../Utils/helpers';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
+import { Box, Card, CardContent, Typography, IconButton, Avatar, Chip } from '@mui/material';
 
 const UsersList = () => {
     const [users, setUsers] = useState([]);
@@ -71,19 +72,17 @@ const UsersList = () => {
             headerName: 'Avatar',
             width: 100,
             renderCell: (params) => (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <img
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Avatar
                         src={params.value}
                         alt="Avatar"
-                        style={{
-                            width: '50px',
-                            height: '50px',
-                            borderRadius: '50%',
-                            objectFit: 'cover',
+                        sx={{
+                            width: 50,
+                            height: 50,
                             border: '2px solid #6b46c1'
                         }}
                     />
-                </div>
+                </Box>
             )
         },
         {
@@ -106,16 +105,16 @@ const UsersList = () => {
             headerName: 'Role',
             width: 120,
             renderCell: (params) => (
-                <span style={{
-                    padding: '5px 12px',
-                    borderRadius: '15px',
-                    fontSize: '0.85rem',
-                    fontWeight: '500',
-                    backgroundColor: params.value === 'admin' ? '#e9d5ff' : '#d4edda',
-                    color: params.value === 'admin' ? '#6b46c1' : '#155724'
-                }}>
-                    {params.value.toUpperCase()}
-                </span>
+                <Chip
+                    label={params.value.toUpperCase()}
+                    size="small"
+                    sx={{
+                        backgroundColor: params.value === 'admin' ? '#e9d5ff' : '#d4edda',
+                        color: params.value === 'admin' ? '#6b46c1' : '#155724',
+                        fontWeight: 600,
+                        fontSize: '0.75rem'
+                    }}
+                />
             )
         },
         {
@@ -123,16 +122,16 @@ const UsersList = () => {
             headerName: 'Status',
             width: 130,
             renderCell: (params) => (
-                <span style={{
-                    padding: '5px 12px',
-                    borderRadius: '15px',
-                    fontSize: '0.85rem',
-                    fontWeight: '500',
-                    backgroundColor: params.value ? '#f8d7da' : '#d4edda',
-                    color: params.value ? '#721c24' : '#155724'
-                }}>
-                    {params.value ? '🚫 SUSPENDED' : '✓ ACTIVE'}
-                </span>
+                <Chip
+                    label={params.value ? '🚫 SUSPENDED' : '✓ ACTIVE'}
+                    size="small"
+                    sx={{
+                        backgroundColor: params.value ? '#f8d7da' : '#d4edda',
+                        color: params.value ? '#721c24' : '#155724',
+                        fontWeight: 600,
+                        fontSize: '0.75rem'
+                    }}
+                />
             )
         },
         {
@@ -155,52 +154,58 @@ const UsersList = () => {
             width: 200,
             sortable: false,
             renderCell: (params) => (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button
+                <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <IconButton
                         onClick={() => navigate(`/admin/user/${params.row.id}`)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: '#6b46c1',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: '#5a3a9e',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title="Edit"
                     >
                         <i className="fa fa-pencil"></i>
-                    </button>
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => navigate(`/admin/user/${params.row.id}/details`)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: '#17a2b8',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: '#138496',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title="View Details"
                     >
                         <i className="fa fa-eye"></i>
-                    </button>
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => deleteUser(params.row.id)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: '#dc3545',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: '#c82333',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title="Delete"
                     >
                         <i className="fa fa-trash"></i>
-                    </button>
-                </div>
+                    </IconButton>
+                </Box>
             )
         }
     ];
@@ -224,52 +229,68 @@ const UsersList = () => {
             <MetaData title={'All Users'} />
             <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
-            <div style={{
+            <Box sx={{
                 marginLeft: sidebarOpen ? '250px' : '0',
                 transition: 'margin-left 0.3s ease',
-                padding: '20px',
+                padding: '24px',
                 minHeight: '100vh',
-                backgroundColor: '#f8f9fa'
+                backgroundColor: '#f5f7fa',
+                width: sidebarOpen ? 'calc(100% - 250px)' : '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
             }}>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h1 style={{ color: '#6b46c1', fontWeight: 'bold' }}>
+                {/* Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <Typography variant="h4" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
                         <i className="fa fa-users mr-2"></i>
                         All Users
-                    </h1>
-                </div>
+                    </Typography>
+                </Box>
 
                 {loading ? (
                     <Loader />
                 ) : (
-                    <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '10px',
-                        padding: '20px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    <Card sx={{
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '2px solid #e9d5ff',
+                        width: '100%'
                     }}>
-                        <DataGrid
-                            rows={rows}
-                            columns={columns}
-                            pageSize={10}
-                            rowsPerPageOptions={[5, 10, 20]}
-                            disableSelectionOnClick
-                            autoHeight
-                            rowHeight={70}
-                            sx={{
-                                '& .MuiDataGrid-cell': {
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                },
-                                '& .MuiDataGrid-columnHeaders': {
-                                    backgroundColor: '#f8f9fa',
-                                    fontWeight: 'bold',
-                                    fontSize: '1rem'
-                                }
-                            }}
-                        />
-                    </div>
+                        <CardContent sx={{ padding: '24px' }}>
+                            <DataGrid
+                                rows={rows}
+                                columns={columns}
+                                pageSize={10}
+                                rowsPerPageOptions={[5, 10, 20, 50]}
+                                disableSelectionOnClick
+                                autoHeight
+                                rowHeight={70}
+                                sx={{
+                                    border: 'none',
+                                    '& .MuiDataGrid-cell': {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        borderBottom: '1px solid #f0f0f0'
+                                    },
+                                    '& .MuiDataGrid-columnHeaders': {
+                                        backgroundColor: '#f8f9fa',
+                                        color: '#6b46c1',
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem',
+                                        borderBottom: '2px solid #e9d5ff'
+                                    },
+                                    '& .MuiDataGrid-row:hover': {
+                                        backgroundColor: '#f8f9fa'
+                                    },
+                                    '& .MuiDataGrid-footerContainer': {
+                                        borderTop: '2px solid #e9d5ff'
+                                    }
+                                }}
+                            />
+                        </CardContent>
+                    </Card>
                 )}
-            </div>
+            </Box>
         </Fragment>
     );
 };

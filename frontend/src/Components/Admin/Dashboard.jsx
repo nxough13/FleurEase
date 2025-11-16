@@ -8,6 +8,11 @@ import { getToken } from '../../Utils/helpers';
 import { toast } from 'react-toastify';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
+import { 
+    Box, Card, CardContent, Typography, Grid, Avatar, Chip, 
+    Table, TableBody, TableCell, TableContainer, TableHead, 
+    TableRow, Paper, Button
+} from '@mui/material';
 
 const Dashboard = () => {
     const [products, setProducts] = useState([]);
@@ -250,365 +255,607 @@ const Dashboard = () => {
         }
     });
 
+    // Get last 3 orders
+    const lastThreeOrders = orders
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 3);
+
+    // Get last 3 users
+    const lastThreeUsers = users
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 3);
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Processing':
+                return '#ffc107';
+            case 'Shipped':
+                return '#17a2b8';
+            case 'Delivered':
+                return '#28a745';
+            case 'Cancelled':
+                return '#dc3545';
+            default:
+                return '#6c757d';
+        }
+    };
+
+    const getStatusBgColor = (status) => {
+        switch (status) {
+            case 'Processing':
+                return '#fff3cd';
+            case 'Shipped':
+                return '#d1ecf1';
+            case 'Delivered':
+                return '#d4edda';
+            case 'Cancelled':
+                return '#f8d7da';
+            default:
+                return '#e2e3e5';
+        }
+    };
+
     return (
         <Fragment>
             <MetaData title={'Admin Dashboard'} />
             <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
             
-            <div style={{
+            <Box sx={{
                 marginLeft: sidebarOpen ? '250px' : '0',
                 transition: 'margin-left 0.3s ease',
-                padding: '20px',
+                padding: '24px',
                 minHeight: '100vh',
-                backgroundColor: '#f8f9fa'
+                backgroundColor: '#f5f7fa',
+                width: sidebarOpen ? 'calc(100% - 250px)' : '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
             }}>
-                    <MetaData title={'Admin Dashboard'} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <h1 style={{ color: '#6b46c1', margin: 0 }}>Dashboard</h1>
-                        <button
-                            onClick={() => setShowPDFModal(true)}
-                            style={{
-                                padding: '12px 24px',
-                                background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '1rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 6px rgba(107, 70, 193, 0.3)',
-                                transition: 'all 0.3s ease'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            <i className="fa fa-download mr-2"></i>
-                            Export PDF Report
-                        </button>
-                    </div>
+                <MetaData title={'Admin Dashboard'} />
+                
+                {/* Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <Typography variant="h4" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
+                        Dashboard
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        onClick={() => setShowPDFModal(true)}
+                        sx={{
+                            background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
+                            borderRadius: '10px',
+                            padding: '10px 24px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            boxShadow: '0 4px 12px rgba(107, 70, 193, 0.3)',
+                            '&:hover': {
+                                background: 'linear-gradient(135deg, #5a3a9e 0%, #7c3aed 100%)',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 6px 16px rgba(107, 70, 193, 0.4)'
+                            }
+                        }}
+                    >
+                        <i className="fa fa-download mr-2"></i>
+                        Export PDF Report
+                    </Button>
+                </Box>
 
-                    {/* Date Range Filter */}
-                    <div className="row pr-4 mb-4">
-                        <div className="col-12">
-                            <div className="card" style={{ 
-                                borderRadius: '15px',
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                border: '1px solid #e9d5ff',
-                                padding: '20px'
-                            }}>
-                                <h5 style={{ color: '#6b46c1', marginBottom: '15px' }}>
-                                    <i className="fa fa-calendar mr-2"></i>
-                                    Filter by Date Range
-                                </h5>
-                                <div className="row">
-                                    <div className="col-md-4">
-                                        <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-                                            Start Date
-                                        </label>
-                                        <input
-                                            type="date"
-                                            className="form-control"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            style={{
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                border: '2px solid #e0e0e0'
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-4">
-                                        <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-                                            End Date
-                                        </label>
-                                        <input
-                                            type="date"
-                                            className="form-control"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            style={{
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                border: '2px solid #e0e0e0'
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-4" style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button
-                                            onClick={() => {
-                                                setStartDate('');
-                                                setEndDate('');
-                                            }}
-                                            style={{
-                                                padding: '10px 20px',
-                                                background: '#e9d5ff',
-                                                color: '#6b46c1',
-                                                border: 'none',
-                                                borderRadius: '8px',
-                                                fontSize: '1rem',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                width: '100%'
-                                            }}
-                                        >
-                                            <i className="fa fa-times mr-2"></i>
-                                            Clear Filter
-                                        </button>
-                                    </div>
-                                </div>
-                                {startDate && endDate && (
-                                    <div style={{ marginTop: '15px', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
-                                        <i className="fa fa-info-circle mr-2" style={{ color: '#16a34a' }}></i>
-                                        <span style={{ color: '#16a34a', fontWeight: '600' }}>
-                                            Showing data from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                {/* Date Range Filter */}
+                <Card sx={{
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    border: '1px solid #e9d5ff',
+                    marginBottom: '30px',
+                    padding: '24px'
+                }}>
+                    <Typography variant="h6" sx={{ color: '#6b46c1', marginBottom: '20px', fontWeight: 'bold' }}>
+                        <i className="fa fa-calendar mr-2"></i>
+                        Filter by Date Range
+                    </Typography>
+                    <Grid container spacing={3} alignItems="flex-end">
+                        <Grid item xs={12} sm={4}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>
+                                Start Date
+                            </Typography>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '2px solid #e0e0e0',
+                                    fontSize: '1rem',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>
+                                End Date
+                            </Typography>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '2px solid #e0e0e0',
+                                    fontSize: '1rem',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Button
+                                variant="outlined"
+                                onClick={() => {
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                fullWidth
+                                sx={{
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    borderColor: '#e9d5ff',
+                                    color: '#6b46c1',
+                                    fontWeight: 600,
+                                    textTransform: 'none',
+                                    '&:hover': {
+                                        borderColor: '#6b46c1',
+                                        backgroundColor: '#f8f9fa'
+                                    }
+                                }}
+                            >
+                                <i className="fa fa-times mr-2"></i>
+                                Clear Filter
+                            </Button>
+                        </Grid>
+                    </Grid>
+                    {startDate && endDate && (
+                        <Box sx={{
+                            marginTop: '20px',
+                            padding: '12px',
+                            background: '#f0fdf4',
+                            borderRadius: '8px',
+                            border: '1px solid #86efac'
+                        }}>
+                            <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: 600 }}>
+                                <i className="fa fa-info-circle mr-2"></i>
+                                Showing data from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+                            </Typography>
+                        </Box>
+                    )}
+                </Card>
 
                     {loading ? <Loader /> : (
                         <Fragment>
-                            {/* Stats Cards */}
-                            <div className="row pr-4">
-                                <div className="col-xl-3 col-sm-6 mb-3">
-                                    <div className="card text-white o-hidden h-100" style={{ 
+                        {/* KPI Cards - Full Width */}
+                        <Grid container spacing={3} sx={{ marginBottom: '30px', width: '100%' }}>
+                            <Grid item xs={12} sm={6} lg={3}>
+                                <Card sx={{
                                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                         borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(102, 126, 234, 0.4)',
-                                        border: 'none',
+                                    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
+                                    color: 'white',
                                         transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Total Sales</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}</div>
-                                                </div>
-                                                <i className="fa fa-arrow-up" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                    '&:hover': {
+                                        transform: 'translateY(-8px)',
+                                        boxShadow: '0 12px 32px rgba(102, 126, 234, 0.4)'
+                                    }
+                                }}>
+                                    <CardContent sx={{ padding: '24px' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
+                                                    Total Sales
+                                                </Typography>
+                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                                    ${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(255, 255, 255, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <i className="fa fa-dollar-sign" style={{ fontSize: '1.5rem' }}></i>
+                                            </Box>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                                <div className="col-xl-3 col-sm-6 mb-3">
-                                    <div className="card text-white o-hidden h-100" style={{ 
+                            <Grid item xs={12} sm={6} lg={3}>
+                                <Card sx={{
                                         background: 'linear-gradient(135deg, #9f7aea 0%, #6b46c1 100%)',
                                         borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(159, 122, 234, 0.4)',
-                                        border: 'none',
+                                    boxShadow: '0 8px 24px rgba(159, 122, 234, 0.3)',
+                                    color: 'white',
                                         transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Orders</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{startDate && endDate ? filteredOrders.length : (orders && orders.length)}</div>
-                                                </div>
-                                                <i className="fa fa-shopping-cart" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
-                                            </div>
-                                        </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/orders" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
-                                            <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                    '&:hover': {
+                                        transform: 'translateY(-8px)',
+                                        boxShadow: '0 12px 32px rgba(159, 122, 234, 0.4)'
+                                    }
+                                }}>
+                                    <CardContent sx={{ padding: '24px' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
+                                                    Orders
+                                                </Typography>
+                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                                    {startDate && endDate ? filteredOrders.length : (orders && orders.length)}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(255, 255, 255, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <i className="fa fa-shopping-cart" style={{ fontSize: '1.5rem' }}></i>
+                                            </Box>
+                                        </Box>
+                                        <Link to="/admin/orders" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
+                                            View Details <i className="fa fa-arrow-right ml-1"></i>
                                         </Link>
-                                    </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                                <div className="col-xl-3 col-sm-6 mb-3">
-                                    <div className="card text-white o-hidden h-100" style={{ 
+                            <Grid item xs={12} sm={6} lg={3}>
+                                <Card sx={{
                                         background: 'linear-gradient(135deg, #c084fc 0%, #9f7aea 100%)',
                                         borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(192, 132, 252, 0.4)',
-                                        border: 'none',
+                                    boxShadow: '0 8px 24px rgba(192, 132, 252, 0.3)',
+                                    color: 'white',
                                         transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Products</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{products && products.length}</div>
-                                                </div>
-                                                <i className="fa fa-box" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
-                                            </div>
-                                        </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/products" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
-                                            <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                    '&:hover': {
+                                        transform: 'translateY(-8px)',
+                                        boxShadow: '0 12px 32px rgba(192, 132, 252, 0.4)'
+                                    }
+                                }}>
+                                    <CardContent sx={{ padding: '24px' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
+                                                    Products
+                                                </Typography>
+                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                                    {products && products.length}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(255, 255, 255, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <i className="fa fa-box" style={{ fontSize: '1.5rem' }}></i>
+                                            </Box>
+                                        </Box>
+                                        <Link to="/admin/products" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
+                                            View Details <i className="fa fa-arrow-right ml-1"></i>
                                         </Link>
-                                    </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                                <div className="col-xl-3 col-sm-6 mb-3">
-                                    <div className="card text-white o-hidden h-100" style={{ 
+                            <Grid item xs={12} sm={6} lg={3}>
+                                <Card sx={{
                                         background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
                                         borderRadius: '16px',
-                                        boxShadow: '0 8px 16px rgba(167, 139, 250, 0.4)',
-                                        border: 'none',
+                                    boxShadow: '0 8px 24px rgba(167, 139, 250, 0.3)',
+                                    color: 'white',
                                         transition: 'all 0.3s ease',
-                                        transform: 'translateY(0)',
-                                        cursor: 'pointer'
-                                    }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div className="card-body" style={{ padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '8px' }}>Users</div>
-                                                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{users && users.length}</div>
-                                                </div>
-                                                <i className="fa fa-users" style={{ fontSize: '1.5rem', opacity: 0.7 }} />
-                                            </div>
-                                        </div>
-                                        <Link className="card-footer text-white clearfix small z-1" to="/admin/users" style={{ textDecoration: 'none', color: 'white', padding: '12px 16px', fontSize: '0.875rem', fontWeight: '500' }}>
-                                            <span className="float-left">View Details</span>
-                                            <span className="float-right"><i className="fa fa-angle-right"></i></span>
+                                    '&:hover': {
+                                        transform: 'translateY(-8px)',
+                                        boxShadow: '0 12px 32px rgba(167, 139, 250, 0.4)'
+                                    }
+                                }}>
+                                    <CardContent sx={{ padding: '24px' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
+                                                    Users
+                                                </Typography>
+                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                                    {users && users.length}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(255, 255, 255, 0.2)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <i className="fa fa-users" style={{ fontSize: '1.5rem' }}></i>
+                                            </Box>
+                                        </Box>
+                                        <Link to="/admin/users" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
+                                            View Details <i className="fa fa-arrow-right ml-1"></i>
                                         </Link>
-                                    </div>
-                                </div>
-                            </div>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
 
-                            {/* Charts Section */}
-                            <div className="row pr-4">
-                                {/* Monthly Sales Chart */}
-                                <div className="col-xl-8 col-sm-12 mb-3">
-                                    <div className="card" style={{ 
-                                        borderRadius: '15px',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        border: '1px solid #e9d5ff'
-                                    }}>
-                                        <div className="card-body">
-                                            <h4 className="mb-3" style={{ color: '#6b46c1' }}>
-                                                📈 Monthly Sales
-                                            </h4>
-                                            {(startDate && endDate ? filteredMonthlySales : monthlySales).length > 0 ? (
-                                                <ResponsiveContainer width="100%" height={300}>
-                                                    <AreaChart data={startDate && endDate ? filteredMonthlySales : monthlySales}>
-                                                        <defs>
-                                                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#6b46c1" stopOpacity={0.3}/>
-                                                                <stop offset="95%" stopColor="#6b46c1" stopOpacity={0}/>
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                                        <XAxis dataKey="month" stroke="#999" />
-                                                        <YAxis stroke="#999" />
-                                                        <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }} formatter={(value) => `$${value.toFixed(2)}`} />
-                                                        <Area 
-                                                            type="monotone" 
-                                                            dataKey="total" 
-                                                            stroke="#6b46c1" 
-                                                            strokeWidth={2}
-                                                            fillOpacity={1}
-                                                            fill="url(#colorSales)"
-                                                            name="Sales ($)"
-                                                        />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
+                        {/* Monthly Sales Chart - Full Width */}
+                        <Card sx={{
+                            borderRadius: '16px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            border: '2px solid #e9d5ff',
+                            marginBottom: '30px',
+                            width: '100%'
+                        }}>
+                            <CardContent sx={{ padding: '24px' }}>
+                                <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold', marginBottom: '20px' }}>
+                                    📈 Monthly Sales
+                                </Typography>
+                                {(startDate && endDate ? filteredMonthlySales : monthlySales).length > 0 ? (
+                                    <ResponsiveContainer width="100%" height={350}>
+                                        <AreaChart data={startDate && endDate ? filteredMonthlySales : monthlySales}>
+                                            <defs>
+                                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#6b46c1" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#6b46c1" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                                            <XAxis dataKey="month" stroke="#999" />
+                                            <YAxis stroke="#999" />
+                                            <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }} formatter={(value) => `$${value.toFixed(2)}`} />
+                                            <Area 
+                                                type="monotone" 
+                                                dataKey="total" 
+                                                stroke="#6b46c1" 
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill="url(#colorSales)"
+                                                name="Sales ($)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <Typography variant="body2" sx={{ textAlign: 'center', color: '#999', padding: '40px' }}>
+                                        No sales data available yet
+                                    </Typography>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Product Sales Pie Chart - Full Width */}
+                        <Card sx={{
+                            borderRadius: '16px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            border: '2px solid #e9d5ff',
+                            marginBottom: '30px',
+                            width: '100%'
+                        }}>
+                            <CardContent sx={{ padding: '24px' }}>
+                                <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold', marginBottom: '20px' }}>
+                                    🌸 Product Sales
+                                </Typography>
+                                {productSales.length > 0 ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        <ResponsiveContainer width="100%" height={350}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={productSales}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={false}
+                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                    outerRadius={120}
+                                                    fill="#8884d8"
+                                                    dataKey="percent"
+                                                >
+                                                    {productSales.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </Box>
+                                ) : (
+                                    <Typography variant="body2" sx={{ textAlign: 'center', color: '#999', padding: '40px' }}>
+                                        No product sales data yet
+                                    </Typography>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Current Ordered Products Table - Full Width */}
+                        <Card sx={{
+                            borderRadius: '16px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            border: '2px solid #e9d5ff',
+                            marginBottom: '30px',
+                            width: '100%'
+                        }}>
+                            <CardContent sx={{ padding: '24px' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
+                                        Current Ordered Products
+                                    </Typography>
+                                    <Link to="/admin/orders" style={{ textDecoration: 'none' }}>
+                                        <Button size="small" sx={{ color: '#6b46c1', textTransform: 'none' }}>
+                                            View All <i className="fa fa-arrow-right ml-1"></i>
+                                        </Button>
+                                    </Link>
+                                </Box>
+                                <TableContainer component={Paper} sx={{ boxShadow: 'none', backgroundColor: 'transparent', width: '100%' }}>
+                                    <Table sx={{ width: '100%' }}>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '30%' }}>Product</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>Customer</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Amount</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>Status</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {lastThreeOrders.length > 0 ? (
+                                                lastThreeOrders.map((order) => (
+                                                    <TableRow key={order._id} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                                                        <TableCell>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                {order.orderItems && order.orderItems[0] && (
+                                                                    <Avatar
+                                                                        src={order.orderItems[0].image}
+                                                                        alt={order.orderItems[0].name}
+                                                                        sx={{ width: 40, height: 40 }}
+                                                                    />
+                                                                )}
+                                                                <Box>
+                                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                        {order.orderItems && order.orderItems[0] ? order.orderItems[0].name : 'N/A'}
+                                                                    </Typography>
+                                                                    <Typography variant="caption" sx={{ color: '#999' }}>
+                                                                        Qty: {order.orderItems && order.orderItems[0] ? order.orderItems[0].quantity : 0}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2">
+                                                                {order.user && order.user.name ? order.user.name : 'N/A'}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#6b46c1' }}>
+                                                                ${order.totalPrice.toFixed(2)}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={order.orderStatus}
+                                                                size="small"
+                                                                sx={{
+                                                                    backgroundColor: getStatusBgColor(order.orderStatus),
+                                                                    color: getStatusColor(order.orderStatus),
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.75rem'
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
                                             ) : (
-                                                <p className="text-center">No sales data available yet</p>
+                                                <TableRow>
+                                                    <TableCell colSpan={4} align="center">
+                                                        <Typography variant="body2" sx={{ color: '#999', padding: '20px' }}>
+                                                            No orders yet
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
                                             )}
-                                        </div>
-                                    </div>
-                                </div>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </CardContent>
+                        </Card>
 
-                                {/* Product Sales Pie Chart */}
-                                <div className="col-xl-4 col-sm-12 mb-3">
-                                    <div className="card" style={{ 
-                                        borderRadius: '15px',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        border: '1px solid #e9d5ff'
-                                    }}>
-                                        <div className="card-body">
-                                            <h4 className="mb-3" style={{ color: '#6b46c1' }}>
-                                                🌸 Product Sales
-                                            </h4>
-                                            {productSales.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height={300}>
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={productSales}
-                                                            cx="50%"
-                                                            cy="50%"
-                                                            labelLine={false}
-                                                            label={({ name, percent }) => `${name}: ${percent}%`}
-                                                            outerRadius={80}
-                                                            fill="#8884d8"
-                                                            dataKey="percent"
-                                                        >
-                                                            {productSales.map((entry, index) => (
-                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                            ))}
-                                                        </Pie>
-                                                        <Tooltip />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
+                        {/* Recent Users Table - Full Width */}
+                        <Card sx={{
+                            borderRadius: '16px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            border: '2px solid #e9d5ff',
+                            marginBottom: '30px',
+                            width: '100%'
+                        }}>
+                            <CardContent sx={{ padding: '24px' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
+                                        Recent Users
+                                    </Typography>
+                                    <Link to="/admin/users" style={{ textDecoration: 'none' }}>
+                                        <Button size="small" sx={{ color: '#6b46c1', textTransform: 'none' }}>
+                                            View All <i className="fa fa-arrow-right ml-1"></i>
+                                        </Button>
+                                    </Link>
+                                </Box>
+                                <TableContainer component={Paper} sx={{ boxShadow: 'none', backgroundColor: 'transparent', width: '100%' }}>
+                                    <Table sx={{ width: '100%' }}>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>User</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '35%' }}>Email</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Role</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Joined</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {lastThreeUsers.length > 0 ? (
+                                                lastThreeUsers.map((user) => (
+                                                    <TableRow key={user._id} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                                                        <TableCell>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <Avatar
+                                                                    src={user.avatar && user.avatar.url}
+                                                                    alt={user.name}
+                                                                    sx={{ width: 40, height: 40 }}
+                                                                />
+                                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                    {user.name}
+                                                                </Typography>
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2" sx={{ color: '#666' }}>
+                                                                {user.email}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={user.role === 'admin' ? 'Admin' : 'User'}
+                                                                size="small"
+                                                                sx={{
+                                                                    backgroundColor: user.role === 'admin' ? '#e9d5ff' : '#f3f4f6',
+                                                                    color: user.role === 'admin' ? '#6b46c1' : '#666',
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.75rem'
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2" sx={{ color: '#999', fontSize: '0.875rem' }}>
+                                                                {new Date(user.createdAt).toLocaleDateString()}
+                                                            </Typography>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
                                             ) : (
-                                                <p className="text-center">No product sales data yet</p>
+                                                <TableRow>
+                                                    <TableCell colSpan={4} align="center">
+                                                        <Typography variant="body2" sx={{ color: '#999', padding: '20px' }}>
+                                                            No users yet
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
                                             )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Quick Stats */}
-                            <div className="row pr-4">
-                                <div className="col-12">
-                                    <div className="card" style={{ 
-                                        borderRadius: '15px',
-                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                        border: '1px solid #e9d5ff'
-                                    }}>
-                                        <div className="card-body">
-                                            <h4 style={{ color: '#6b46c1' }}>📊 Quick Stats</h4>
-                                            <div className="row mt-3">
-                                                <div className="col-md-4">
-                                                    <div style={{ 
-                                                        backgroundColor: '#f3f4f6', 
-                                                        padding: '20px', 
-                                                        borderRadius: '10px',
-                                                        textAlign: 'center'
-                                                    }}>
-                                                        <h5 style={{ color: '#6b46c1' }}>Out of Stock</h5>
-                                                        <h2 style={{ color: '#ef4444', fontWeight: 'bold' }}>{outOfStock}</h2>
-                                                    </div>
-                                                </div>
-                                                <div className="col-md-4">
-                                                    <div style={{ 
-                                                        backgroundColor: '#f3f4f6', 
-                                                        padding: '20px', 
-                                                        borderRadius: '10px',
-                                                        textAlign: 'center'
-                                                    }}>
-                                                        <h5 style={{ color: '#6b46c1' }}>In Stock</h5>
-                                                        <h2 style={{ color: '#10b981', fontWeight: 'bold' }}>
-                                                            {products.length - outOfStock}
-                                                        </h2>
-                                                    </div>
-                                                </div>
-                                                <div className="col-md-4">
-                                                    <div style={{ 
-                                                        backgroundColor: '#f3f4f6', 
-                                                        padding: '20px', 
-                                                        borderRadius: '10px',
-                                                        textAlign: 'center'
-                                                    }}>
-                                                        <h5 style={{ color: '#6b46c1' }}>Avg Order Value</h5>
-                                                        <h2 style={{ color: '#6b46c1', fontWeight: 'bold' }}>
-                                                            ${orders.length > 0 ? (totalAmount / orders.length).toFixed(2) : '0.00'}
-                                                        </h2>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </CardContent>
+                        </Card>
                         </Fragment>
                     )}
 
@@ -746,7 +993,7 @@ const Dashboard = () => {
                             </div>
                         </div>
                     )}
-            </div>
+            </Box>
         </Fragment>
     );
 };

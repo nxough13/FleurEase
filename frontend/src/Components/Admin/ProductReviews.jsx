@@ -1,7 +1,7 @@
 import React, { Fragment, useState, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import MetaData from '../Layout/MetaData';
-import Sidebar from './SideBar';
+import Sidebar from './Sidebar';
 import { getToken } from '../../Utils/helpers';
 import axios from 'axios';
 import { toast } from 'react-toastify';

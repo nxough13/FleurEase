@@ -2,7 +2,7 @@ import React, { Fragment, useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import MetaData from '../Layout/MetaData';
 import Loader from '../Layout/Loader';
-import Sidebar from './SideBar';
+import Sidebar from './Sidebar';
 import { getToken } from '../../Utils/helpers';
 import axios from 'axios';
 import { toast } from 'react-toastify';

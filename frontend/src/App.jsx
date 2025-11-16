@@ -50,10 +50,9 @@ function App() {
     <Router>
       <div className="App">
         <Header />
-        <div className="container container-fluid">
-          <Routes>
+        <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<div className="container container-fluid"><Home /></div>} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
@@ -62,7 +61,7 @@ function App() {
               path="/me" 
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <div className="container container-fluid"><Profile /></div>
                 </ProtectedRoute>
               } 
             />
@@ -70,7 +69,7 @@ function App() {
               path="/me/update" 
               element={
                 <ProtectedRoute>
-                  <UpdateProfile />
+                  <div className="container container-fluid"><UpdateProfile /></div>
                 </ProtectedRoute>
               } 
             />
@@ -78,7 +77,7 @@ function App() {
               path="/password/update" 
               element={
                 <ProtectedRoute>
-                  <UpdatePassword />
+                  <div className="container container-fluid"><UpdatePassword /></div>
                 </ProtectedRoute>
               } 
             />
@@ -86,21 +85,21 @@ function App() {
               path="/wishlist" 
               element={
                 <ProtectedRoute>
-                  <Wishlist />
+                  <div className="container container-fluid"><Wishlist /></div>
                 </ProtectedRoute>
               } 
             />
 
             {/* Product Routes */}
-            <Route path="/products" element={<Products />} />
-            <Route path="/product/:id" element={<ProductDetails />} />
+            <Route path="/products" element={<div className="container container-fluid"><Products /></div>} />
+            <Route path="/product/:id" element={<div className="container container-fluid"><ProductDetails /></div>} />
 
             {/* Cart Routes */}
             <Route 
               path="/cart" 
               element={
                 <ProtectedRoute>
-                  <Cart />
+                  <div className="container container-fluid"><Cart /></div>
                 </ProtectedRoute>
               } 
             />
@@ -108,7 +107,7 @@ function App() {
               path="/shipping" 
               element={
                 <ProtectedRoute>
-                  <Shipping />
+                  <div className="container container-fluid"><Shipping /></div>
                 </ProtectedRoute>
               } 
             />
@@ -116,7 +115,7 @@ function App() {
               path="/confirm-order" 
               element={
                 <ProtectedRoute>
-                  <ConfirmOrder />
+                  <div className="container container-fluid"><ConfirmOrder /></div>
                 </ProtectedRoute>
               } 
             />
@@ -126,7 +125,7 @@ function App() {
               path="/orders/me" 
               element={
                 <ProtectedRoute>
-                  <ListOrders />
+                  <div className="container container-fluid"><ListOrders /></div>
                 </ProtectedRoute>
               } 
             />
@@ -134,12 +133,12 @@ function App() {
               path="/order/:id" 
               element={
                 <ProtectedRoute>
-                  <OrderDetails />
+                  <div className="container container-fluid"><OrderDetails /></div>
                 </ProtectedRoute>
               } 
             />
 
-            {/* Admin Routes */}
+            {/* Admin Routes - No container for full width */}
             <Route 
               path="/admin/dashboard" 
               element={
@@ -175,7 +174,7 @@ function App() {
               } 
             />
 
-            {/* Product Routes */}
+            {/* Admin Product Routes */}
             <Route 
               path="/admin/products" 
               element={
@@ -209,7 +208,7 @@ function App() {
               } 
             />
 
-            {/* User Routes */}
+            {/* Admin User Routes */}
             <Route 
               path="/admin/users" 
               element={
@@ -263,7 +262,6 @@ function App() {
               } 
             />
           </Routes>
-        </div>
         <Footer />
         <ToastContainer 
           position="bottom-center"

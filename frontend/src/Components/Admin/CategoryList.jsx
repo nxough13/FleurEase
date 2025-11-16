@@ -8,6 +8,7 @@ import axios from 'axios';
 import { getToken } from '../../Utils/helpers';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
+import { Box, Card, CardContent, Typography, Button, IconButton, Chip } from '@mui/material';
 
 const CategoryList = () => {
     const [categories, setCategories] = useState([]);
@@ -175,18 +176,16 @@ const CategoryList = () => {
             headerName: 'Status',
             width: 120,
             renderCell: (params) => (
-                <span
-                    style={{
-                        padding: '5px 12px',
-                        borderRadius: '15px',
-                        fontSize: '0.85rem',
-                        fontWeight: '500',
+                <Chip
+                    label={params.value ? 'Active' : 'Inactive'}
+                    size="small"
+                    sx={{
                         backgroundColor: params.value ? '#d4edda' : '#f8d7da',
-                        color: params.value ? '#155724' : '#721c24'
+                        color: params.value ? '#155724' : '#721c24',
+                        fontWeight: 600,
+                        fontSize: '0.75rem'
                     }}
-                >
-                    {params.value ? 'Active' : 'Inactive'}
-                </span>
+                />
             )
         },
         {
@@ -203,52 +202,58 @@ const CategoryList = () => {
             width: 250,
             sortable: false,
             renderCell: (params) => (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button
+                <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <IconButton
                         onClick={() => navigate(`/admin/category/${params.row.id}`)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: '#6b46c1',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: '#5a3a9e',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title="Edit"
                     >
                         <i className="fa fa-pencil"></i>
-                    </button>
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => toggleCategoryStatus(params.row.id)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: params.row.isActive ? '#ffc107' : '#28a745',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: params.row.isActive ? '#e0a800' : '#218838',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title={params.row.isActive ? 'Disable' : 'Enable'}
                     >
                         <i className={`fa fa-${params.row.isActive ? 'ban' : 'check'}`}></i>
-                    </button>
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => deleteCategory(params.row.id)}
-                        className="btn btn-sm"
-                        style={{
+                        size="small"
+                        sx={{
                             backgroundColor: '#dc3545',
                             color: 'white',
-                            padding: '5px 12px',
-                            borderRadius: '5px',
-                            border: 'none'
+                            '&:hover': {
+                                backgroundColor: '#c82333',
+                                transform: 'scale(1.1)'
+                            },
+                            transition: 'all 0.2s ease'
                         }}
                         title="Delete"
                     >
                         <i className="fa fa-trash"></i>
-                    </button>
-                </div>
+                    </IconButton>
+                </Box>
             )
         }
     ];
@@ -271,86 +276,112 @@ const CategoryList = () => {
             <MetaData title={'All Categories'} />
             <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
-            <div style={{
+            <Box sx={{
                 marginLeft: sidebarOpen ? '250px' : '0',
                 transition: 'margin-left 0.3s ease',
-                padding: '20px',
+                padding: '24px',
                 minHeight: '100vh',
-                backgroundColor: '#f8f9fa'
+                backgroundColor: '#f5f7fa',
+                width: sidebarOpen ? 'calc(100% - 250px)' : '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
             }}>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h1 style={{ color: '#6b46c1', fontWeight: 'bold' }}>
-                        <i className="fa fa-list mr-2"></i>
+                {/* Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <Typography variant="h4" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
+                        <i className="fa fa-tags mr-2"></i>
                         All Categories
-                    </h1>
-                    <div>
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                         {selectedRows.length > 0 && (
-                            <button
+                            <Button
+                                variant="contained"
+                                color="error"
                                 onClick={bulkDeleteCategories}
-                                className="btn btn-danger mr-2"
-                                style={{
-                                    borderRadius: '20px',
+                                startIcon={<i className="fa fa-trash"></i>}
+                                sx={{
+                                    borderRadius: '10px',
                                     padding: '10px 20px',
-                                    fontWeight: '500'
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    boxShadow: '0 4px 12px rgba(220, 53, 69, 0.3)'
                                 }}
                             >
-                                <i className="fa fa-trash mr-2"></i>
                                 Delete Selected ({selectedRows.length})
-                            </button>
+                            </Button>
                         )}
-                        <Link
+                        <Button
+                            component={Link}
                             to="/admin/category/new"
-                            className="btn"
-                            style={{
-                                backgroundColor: '#6b46c1',
-                                color: 'white',
-                                borderRadius: '20px',
-                                padding: '10px 20px',
-                                fontWeight: '500'
+                            variant="contained"
+                            startIcon={<i className="fa fa-plus"></i>}
+                            sx={{
+                                background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
+                                borderRadius: '10px',
+                                padding: '10px 24px',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                boxShadow: '0 4px 12px rgba(107, 70, 193, 0.3)',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #5a3a9e 0%, #7c3aed 100%)',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 6px 16px rgba(107, 70, 193, 0.4)'
+                                }
                             }}
                         >
-                            <i className="fa fa-plus mr-2"></i>
                             Add New Category
-                        </Link>
-                    </div>
-                </div>
+                        </Button>
+                    </Box>
+                </Box>
 
                 {loading ? (
                     <Loader />
                 ) : (
-                    <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '10px',
-                        padding: '20px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    <Card sx={{
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        border: '2px solid #e9d5ff',
+                        width: '100%'
                     }}>
-                        <DataGrid
-                            rows={rows}
-                            columns={columns}
-                            pageSize={10}
-                            rowsPerPageOptions={[5, 10, 20]}
-                            checkboxSelection
-                            disableSelectionOnClick
-                            autoHeight
-                            rowHeight={80}
-                            onRowSelectionModelChange={(newSelection) => {
-                                setSelectedRows(newSelection);
-                            }}
-                            sx={{
-                                '& .MuiDataGrid-cell': {
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                },
-                                '& .MuiDataGrid-columnHeaders': {
-                                    backgroundColor: '#f8f9fa',
-                                    fontWeight: 'bold',
-                                    fontSize: '1rem'
-                                }
-                            }}
-                        />
-                    </div>
+                        <CardContent sx={{ padding: '24px' }}>
+                            <DataGrid
+                                rows={rows}
+                                columns={columns}
+                                pageSize={10}
+                                rowsPerPageOptions={[5, 10, 20, 50]}
+                                checkboxSelection
+                                disableSelectionOnClick
+                                autoHeight
+                                rowHeight={80}
+                                onRowSelectionModelChange={(newSelection) => {
+                                    setSelectedRows(newSelection);
+                                }}
+                                sx={{
+                                    border: 'none',
+                                    '& .MuiDataGrid-cell': {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        borderBottom: '1px solid #f0f0f0'
+                                    },
+                                    '& .MuiDataGrid-columnHeaders': {
+                                        backgroundColor: '#f8f9fa',
+                                        color: '#6b46c1',
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem',
+                                        borderBottom: '2px solid #e9d5ff'
+                                    },
+                                    '& .MuiDataGrid-row:hover': {
+                                        backgroundColor: '#f8f9fa'
+                                    },
+                                    '& .MuiDataGrid-footerContainer': {
+                                        borderTop: '2px solid #e9d5ff'
+                                    }
+                                }}
+                            />
+                        </CardContent>
+                    </Card>
                 )}
-            </div>
+            </Box>
         </Fragment>
     );
 };
