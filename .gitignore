@@ -1,5 +1,5 @@
 # Exclude ITCP folder
-ITCP/
+
 
 # Node modules
 node_modules/

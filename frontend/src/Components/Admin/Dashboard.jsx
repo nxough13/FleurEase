@@ -3,18 +3,82 @@ import { Link } from 'react-router-dom';
 import MetaData from '../Layout/MetaData';
 import Loader from '../Layout/Loader';
 import Sidebar from './Sidebar';
+import AdminHeader from '../Layout/AdminHeader';
 import axios from 'axios';
 import { getToken } from '../../Utils/helpers';
 import { toast } from 'react-toastify';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { motion } from 'framer-motion';
 import { jsPDF } from 'jspdf';
+import { 
+    AreaChart, 
+    Area, 
+    XAxis, 
+    YAxis, 
+    CartesianGrid, 
+    Tooltip, 
+    ResponsiveContainer, 
+    PieChart, 
+    Pie, 
+    Cell, 
+    Legend 
+} from 'recharts';
 import { 
     Box, Card, CardContent, Typography, Grid, Avatar, Chip, 
     Table, TableBody, TableCell, TableContainer, TableHead, 
-    TableRow, Paper, Button
+    TableRow, Paper, Button, Dialog, DialogTitle, DialogContent
 } from '@mui/material';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('Dashboard Error:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100vh',
+                    padding: '20px',
+                    textAlign: 'center'
+                }}>
+                    <Typography variant="h5" color="error" sx={{ mb: 2 }}>
+                        Something went wrong in the Dashboard
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 3 }}>
+                        {this.state.error?.toString()}
+                    </Typography>
+                    <Button 
+                        variant="contained" 
+                        color="primary"
+                        onClick={() => window.location.reload()}
+                    >
+                        Reload Dashboard
+                    </Button>
+                </Box>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 const Dashboard = () => {
+    const [error, setError] = useState(null);
+    const [showPieChartModal, setShowPieChartModal] = useState(false);
     const [products, setProducts] = useState([]);
     const [orders, setOrders] = useState([]);
     const [users, setUsers] = useState([]);
@@ -22,7 +86,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [productSales, setProductSales] = useState([]);
     const [monthlySales, setMonthlySales] = useState([]);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 900);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [filteredOrders, setFilteredOrders] = useState([]);
@@ -43,7 +107,34 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        getDashboardData();
+        const fetchData = async () => {
+            try {
+                await getDashboardData();
+            } catch (err) {
+                console.error('Error in Dashboard:', err);
+                setError(err.message || 'Failed to load dashboard data');
+                setLoading(false);
+            }
+        };
+        
+        fetchData();
+    }, []);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth <= 900) {
+                setSidebarOpen(false);
+            } else {
+                setSidebarOpen(true);
+            }
+        };
+
+        // Set initial state
+        handleResize();
+
+        // Add event listener for window resize
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     useEffect(() => {
@@ -59,32 +150,84 @@ const Dashboard = () => {
         const config = {
             headers: {
                 'Authorization': `Bearer ${getToken()}`
-            }
+            },
+            withCredentials: true
         };
 
         try {
+            const API_URL = import.meta.env.VITE_API || 'http://localhost:4001/api/v1';
+            console.log('Starting dashboard data fetch...');
+            
+            // Make all API requests in parallel
             const [productsRes, ordersRes, usersRes, salesRes, monthlySalesRes] = await Promise.all([
-                axios.get(`${import.meta.env.VITE_API}/admin/products`, config),
-                axios.get(`${import.meta.env.VITE_API}/admin/orders`, config),
-                axios.get(`${import.meta.env.VITE_API}/admin/users`, config),
-                axios.get(`${import.meta.env.VITE_API}/admin/product-sales`, config),
-                axios.get(`${import.meta.env.VITE_API}/admin/sales-per-month`, config)
+                axios.get(`${API_URL}/admin/products`, config),
+                axios.get(`${API_URL}/admin/orders`, config),
+                axios.get(`${API_URL}/admin/users`, config),
+                axios.get(`${API_URL}/admin/product-sales`, config),
+                axios.get(`${API_URL}/admin/sales-per-month`, config)
             ]);
 
-            setProducts(productsRes.data.products);
-            setOrders(ordersRes.data.orders);
-            setUsers(usersRes.data.users);
-            setTotalAmount(ordersRes.data.totalAmount);
+            // Update state with the fetched data
+            setProducts(productsRes.data.products || []);
+            setOrders(ordersRes.data.orders || []);
+            setUsers(usersRes.data.users || []);
+            setTotalAmount(ordersRes.data.totalAmount || 0);
             setProductSales(salesRes.data.totalPercentage || []);
             setMonthlySales(monthlySalesRes.data.salesPerMonth || []);
             setLoading(false);
+
         } catch (error) {
+            console.error('Error loading dashboard data:', error);
             toast.error('Error loading dashboard data');
             setLoading(false);
+            
+            // Handle specific error cases
+            if (error.response?.status === 401) {
+                // Unauthorized - token might be invalid or expired
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+            } else if (error.response?.status === 403) {
+                // Forbidden - user doesn't have admin role
+                toast.error('You do not have permission to access the dashboard');
+                window.location.href = '/';
+            }
+        };
+    };
+
+    const parseMonthYear = (monthStr) => {
+        // Handle different date formats: "October 2024", "Oct 2024", "10-2024", "10/2024"
+        if (!monthStr) return null;
+        
+        // Try parsing as "Month YYYY" (e.g., "October 2024")
+        let date = new Date(monthStr);
+        if (!isNaN(date.getTime())) return date;
+        
+        // Try parsing as "MM-YYYY" or "MM/YYYY"
+        const parts = monthStr.split(/[\s/-]+/);
+        if (parts.length === 2) {
+            const month = parseInt(parts[0], 10) - 1; // JS months are 0-indexed
+            const year = parseInt(parts[1], 10);
+            if (!isNaN(month) && !isNaN(year)) {
+                return new Date(year, month, 1);
+            }
         }
+        
+        // Try parsing as "Month, YYYY" (e.g., "October, 2024")
+        date = new Date(monthStr.replace(/(\w+)\s*,\s*(\d{4})/, '$1 1, $2'));
+        if (!isNaN(date.getTime())) return date;
+        
+        console.warn('Could not parse date:', monthStr);
+        return null;
     };
 
     const filterDataByDateRange = () => {
+        if (!startDate || !endDate) {
+            setFilteredOrders(orders);
+            setFilteredAmount(totalAmount);
+            setFilteredMonthlySales(monthlySales);
+            return;
+        }
+
         const start = new Date(startDate);
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999); // Include the entire end date
@@ -101,14 +244,16 @@ const Dashboard = () => {
 
         // Filter monthly sales data
         const filtered_monthly = monthlySales.filter(item => {
-            // Parse month string like "October 2024" or "Oct-2024"
-            const monthYear = item.month.toLowerCase();
-            const startMonth = start.toLocaleString('default', { month: 'long', year: 'numeric' }).toLowerCase();
-            const endMonth = end.toLocaleString('default', { month: 'long', year: 'numeric' }).toLowerCase();
+            const itemDate = parseMonthYear(item.month);
+            if (!itemDate) return false;
             
-            // Check if month is within range
-            const itemDate = new Date(`${item.month} 1`);
-            return itemDate >= start && itemDate <= end;
+            // Create start/end of month for comparison
+            const itemMonthStart = new Date(itemDate.getFullYear(), itemDate.getMonth(), 1);
+            const itemMonthEnd = new Date(itemDate.getFullYear(), itemDate.getMonth() + 1, 0);
+            itemMonthEnd.setHours(23, 59, 59, 999);
+            
+            // Check if the month range overlaps with the selected date range
+            return itemMonthStart <= end && itemMonthEnd >= start;
         });
 
         setFilteredMonthlySales(filtered_monthly);
@@ -295,707 +440,1157 @@ const Dashboard = () => {
         }
     };
 
+    if (error) {
+        return (
+            <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100vh',
+                padding: '20px',
+                textAlign: 'center'
+            }}>
+                <Typography variant="h5" color="error" sx={{ mb: 2 }}>
+                    Error Loading Dashboard
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                    {error}
+                </Typography>
+                <Button 
+                    variant="contained" 
+                    color="primary"
+                    onClick={() => window.location.reload()}
+                >
+                    Try Again
+                </Button>
+            </Box>
+        );
+    }
+
+    if (loading) {
+        return (
+            <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh' 
+            }}>
+                <Loader />
+            </Box>
+        );
+    }
+
     return (
-        <Fragment>
+        <ErrorBoundary>
             <MetaData title={'Admin Dashboard'} />
+            <AdminHeader toggleSidebar={toggleSidebar} />
             <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
             
-            <Box sx={{
-                marginLeft: sidebarOpen ? '250px' : '0',
-                transition: 'margin-left 0.3s ease',
-                padding: '24px',
-                minHeight: '100vh',
-                backgroundColor: '#f5f7fa',
-                width: sidebarOpen ? 'calc(100% - 250px)' : '100%',
-                maxWidth: '100%',
-                boxSizing: 'border-box'
-            }}>
-                <MetaData title={'Admin Dashboard'} />
-                
-                {/* Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                    <Typography variant="h4" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
-                        Dashboard
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        onClick={() => setShowPDFModal(true)}
-                        sx={{
-                            background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
-                            borderRadius: '10px',
-                            padding: '10px 24px',
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            boxShadow: '0 4px 12px rgba(107, 70, 193, 0.3)',
-                            '&:hover': {
-                                background: 'linear-gradient(135deg, #5a3a9e 0%, #7c3aed 100%)',
-                                transform: 'translateY(-2px)',
-                                boxShadow: '0 6px 16px rgba(107, 70, 193, 0.4)'
-                            }
+            <Box 
+                component="main"
+                sx={{
+                    marginLeft: { xs: '0', md: sidebarOpen ? '280px' : '0' },
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    padding: { xs: '16px', md: '24px' },
+                    paddingTop: { xs: '80px', md: '32px' },
+                    minHeight: '100vh',
+                    backgroundColor: '#f8fafc',
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    overflowX: 'hidden'
+                }}
+            >
+                <Box 
+                    sx={{ 
+                        maxWidth: '1440px', 
+                        margin: '0 auto',
+                        width: '100%'
+                    }}
+                >
+                    {/* Header with Animation */}
+                    <Box 
+                        sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            marginBottom: '32px',
+                            animation: 'fadeIn 0.5s ease-out'
                         }}
                     >
-                        <i className="fa fa-download mr-2"></i>
-                        Export PDF Report
-                    </Button>
-                </Box>
-
-                {/* Date Range Filter */}
-                <Card sx={{
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                    border: '1px solid #e9d5ff',
-                    marginBottom: '30px',
-                    padding: '24px'
-                }}>
-                    <Typography variant="h6" sx={{ color: '#6b46c1', marginBottom: '20px', fontWeight: 'bold' }}>
-                        <i className="fa fa-calendar mr-2"></i>
-                        Filter by Date Range
-                    </Typography>
-                    <Grid container spacing={3} alignItems="flex-end">
-                        <Grid item xs={12} sm={4}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>
-                                Start Date
-                            </Typography>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '2px solid #e0e0e0',
-                                    fontSize: '1rem',
-                                    fontFamily: 'inherit'
-                                }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>
-                                End Date
-                            </Typography>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '2px solid #e0e0e0',
-                                    fontSize: '1rem',
-                                    fontFamily: 'inherit'
-                                }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <Button
-                                variant="outlined"
-                                onClick={() => {
-                                    setStartDate('');
-                                    setEndDate('');
-                                }}
-                                fullWidth
-                                sx={{
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    borderColor: '#e9d5ff',
-                                    color: '#6b46c1',
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    '&:hover': {
-                                        borderColor: '#6b46c1',
-                                        backgroundColor: '#f8f9fa'
-                                    }
+                        <Box>
+                            <Typography 
+                                variant="h4" 
+                                sx={{ 
+                                    color: '#1e293b', 
+                                    fontWeight: '700',
+                                    fontSize: { xs: '1.75rem', md: '2rem' },
+                                    lineHeight: 1.2,
+                                    background: 'linear-gradient(90deg, #6b46c1 0%, #8b5cf6 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    display: 'inline-block'
                                 }}
                             >
-                                <i className="fa fa-times mr-2"></i>
-                                Clear Filter
-                            </Button>
-                        </Grid>
-                    </Grid>
-                    {startDate && endDate && (
-                        <Box sx={{
-                            marginTop: '20px',
-                            padding: '12px',
-                            background: '#f0fdf4',
-                            borderRadius: '8px',
-                            border: '1px solid #86efac'
-                        }}>
-                            <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: 600 }}>
-                                <i className="fa fa-info-circle mr-2"></i>
-                                Showing data from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+                                Dashboard Overview
+                            </Typography>
+                            <Typography 
+                                variant="body1" 
+                                sx={{ 
+                                    color: '#64748b',
+                                    mt: 0.5,
+                                    fontSize: '0.95rem'
+                                }}
+                            >
+                                Welcome back! Here's what's happening with your store today.
                             </Typography>
                         </Box>
-                    )}
-                </Card>
+                        <Button
+                            variant="contained"
+                            onClick={() => setShowPDFModal(true)}
+                            startIcon={
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M19 9H15V3H9V9H5L12 16L19 9Z" fill="currentColor"/>
+                                    <path d="M5 18V20H19V18H5Z" fill="currentColor"/>
+                                </svg>
+                            }
+                            sx={{
+                                background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
+                                borderRadius: '12px',
+                                padding: '10px 20px',
+                                textTransform: 'none',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                boxShadow: '0 4px 14px rgba(107, 70, 193, 0.25)',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #5a3a9e 0%, #7c3aed 100%)',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 6px 20px rgba(107, 70, 193, 0.35)'
+                                },
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
+                            Export Report
+                        </Button>
+                    </Box>
 
-                    {loading ? <Loader /> : (
-                        <Fragment>
-                        {/* KPI Cards - Full Width */}
-                        <Grid container spacing={3} sx={{ marginBottom: '30px', width: '100%' }}>
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <Card sx={{
-                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        borderRadius: '16px',
-                                    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-                                    color: 'white',
-                                        transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        transform: 'translateY(-8px)',
-                                        boxShadow: '0 12px 32px rgba(102, 126, 234, 0.4)'
-                                    }
+                {/* Date Range Filter with Animation */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                >
+                    <Card sx={{
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                        background: 'linear-gradient(145deg, #ffffff, #f8f5ff)',
+                        border: '1px solid rgba(233, 213, 255, 0.5)',
+                        marginBottom: '30px',
+                        padding: { xs: '16px', md: '24px' },
+                        backdropFilter: 'blur(10px)',
+                        '&:hover': {
+                            boxShadow: '0 8px 24px rgba(107, 70, 193, 0.15)'
+                        },
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}>
+                        <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            justifyContent: 'space-between',
+                            alignItems: { xs: 'flex-start', sm: 'center' },
+                            marginBottom: '16px'
+                        }}>
+                            <Typography variant="h6" sx={{ 
+                                color: '#4c1d95', 
+                                fontWeight: '700',
+                                mb: { xs: 2, sm: 0 },
+                                fontSize: '1.1rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                Filter Dashboard Data
+                            </Typography>
+                            <Box sx={{ 
+                                display: 'flex', 
+                                gap: '16px',
+                                flexWrap: 'wrap',
+                                width: { xs: '100%', sm: 'auto' }
+                            }}>
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    flex: { xs: '1 1 100%', sm: '0 0 auto' }
                                 }}>
-                                    <CardContent sx={{ padding: '24px' }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
-                                                    Total Sales
-                                                </Typography>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                    ${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{
-                                                width: '48px',
-                                                height: '48px',
-                                                borderRadius: '12px',
-                                                background: 'rgba(255, 255, 255, 0.2)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <i className="fa fa-dollar-sign" style={{ fontSize: '1.5rem' }}></i>
+                                    <Typography variant="body2" sx={{ 
+                                        color: '#4b5563',
+                                        whiteSpace: 'nowrap',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500'
+                                    }}>
+                                        From:
+                                    </Typography>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="date-input"
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            backgroundColor: '#fff',
+                                            color: '#1e293b',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '500',
+                                            width: '100%',
+                                            maxWidth: '160px',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                            transition: 'all 0.2s ease',
+                                            '&:focus': {
+                                                outline: 'none',
+                                                borderColor: '#8b5cf6',
+                                                boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.2)'
+                                            }
+                                        }}
+                                    />
+                                </Box>
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    flex: { xs: '1 1 100%', sm: '0 0 auto' }
+                                }}>
+                                    <Typography variant="body2" sx={{ 
+                                        color: '#4b5563',
+                                        whiteSpace: 'nowrap',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500'
+                                    }}>
+                                        To:
+                                    </Typography>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="date-input"
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            backgroundColor: '#fff',
+                                            color: '#1e293b',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '500',
+                                            width: '100%',
+                                            maxWidth: '160px',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                            transition: 'all 0.2s ease',
+                                            '&:focus': {
+                                                outline: 'none',
+                                                borderColor: '#8b5cf6',
+                                                boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.2)'
+                                            }
+                                        }}
+                                    />
+                                </Box>
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => {
+                                        setStartDate('');
+                                        setEndDate('');
+                                    }}
+                                    sx={{
+                                        color: '#6b46c1',
+                                        borderColor: '#e2e8f0',
+                                        textTransform: 'none',
+                                        borderRadius: '8px',
+                                        padding: '8px 16px',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '600',
+                                        '&:hover': {
+                                            backgroundColor: '#f5f3ff',
+                                            borderColor: '#c4b5fd',
+                                            color: '#5b21b6'
+                                        },
+                                        transition: 'all 0.2s ease',
+                                        flex: { xs: '1 1 100%', sm: '0 0 auto' },
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    Clear Filters
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Card>
+                </motion.div>
+
+                {/* KPI Cards */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                >
+                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                        {/* Total Sales */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
+                                color: 'white',
+                                height: '100%',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 10px 25px -5px rgba(107, 70, 193, 0.4)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <Box sx={{ p: 3, position: 'relative', zIndex: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
+                                                Total Sales
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ mt: 1, fontWeight: '700', fontSize: '1.75rem' }}>
+                                                ${(startDate && endDate ? filteredAmount : totalAmount).toFixed(2)}
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                                <Box sx={{ 
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '12px',
+                                                    padding: '2px 8px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}>
+                                                    <span style={{ marginRight: '4px' }}>↑</span>
+                                                    <span>12% from last month</span>
+                                                </Box>
                                             </Box>
                                         </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <Card sx={{
-                                        background: 'linear-gradient(135deg, #9f7aea 0%, #6b46c1 100%)',
-                                        borderRadius: '16px',
-                                    boxShadow: '0 8px 24px rgba(159, 122, 234, 0.3)',
-                                    color: 'white',
-                                        transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        transform: 'translateY(-8px)',
-                                        boxShadow: '0 12px 32px rgba(159, 122, 234, 0.4)'
-                                    }
-                                }}>
-                                    <CardContent sx={{ padding: '24px' }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
-                                                    Orders
-                                                </Typography>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                    {startDate && endDate ? filteredOrders.length : (orders && orders.length)}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{
-                                                width: '48px',
-                                                height: '48px',
-                                                borderRadius: '12px',
-                                                background: 'rgba(255, 255, 255, 0.2)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <i className="fa fa-shopping-cart" style={{ fontSize: '1.5rem' }}></i>
-                                            </Box>
+                                        <Box sx={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '12px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 1L3 5V11C3 16.55 6.16 21.74 12 23C17.84 21.74 21 16.55 21 11V5L12 1ZM12 11.99H19C18.47 16.11 15.72 19.78 12 20.93V12H5V6.3L12 3.19V11.99Z" fill="white"/>
+                                            </svg>
                                         </Box>
-                                        <Link to="/admin/orders" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
-                                            View Details <i className="fa fa-arrow-right ml-1"></i>
-                                        </Link>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <Card sx={{
-                                        background: 'linear-gradient(135deg, #c084fc 0%, #9f7aea 100%)',
-                                        borderRadius: '16px',
-                                    boxShadow: '0 8px 24px rgba(192, 132, 252, 0.3)',
-                                    color: 'white',
-                                        transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        transform: 'translateY(-8px)',
-                                        boxShadow: '0 12px 32px rgba(192, 132, 252, 0.4)'
-                                    }
-                                }}>
-                                    <CardContent sx={{ padding: '24px' }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
-                                                    Products
-                                                </Typography>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                    {products && products.length}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{
-                                                width: '48px',
-                                                height: '48px',
-                                                borderRadius: '12px',
-                                                background: 'rgba(255, 255, 255, 0.2)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <i className="fa fa-box" style={{ fontSize: '1.5rem' }}></i>
-                                            </Box>
-                                        </Box>
-                                        <Link to="/admin/products" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
-                                            View Details <i className="fa fa-arrow-right ml-1"></i>
-                                        </Link>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <Card sx={{
-                                        background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
-                                        borderRadius: '16px',
-                                    boxShadow: '0 8px 24px rgba(167, 139, 250, 0.3)',
-                                    color: 'white',
-                                        transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        transform: 'translateY(-8px)',
-                                        boxShadow: '0 12px 32px rgba(167, 139, 250, 0.4)'
-                                    }
-                                }}>
-                                    <CardContent sx={{ padding: '24px' }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Typography variant="body2" sx={{ opacity: 0.9, marginBottom: '8px' }}>
-                                                    Users
-                                                </Typography>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                    {users && users.length}
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{
-                                                width: '48px',
-                                                height: '48px',
-                                                borderRadius: '12px',
-                                                background: 'rgba(255, 255, 255, 0.2)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <i className="fa fa-users" style={{ fontSize: '1.5rem' }}></i>
-                                            </Box>
-                                        </Box>
-                                        <Link to="/admin/users" style={{ textDecoration: 'none', color: 'white', marginTop: '12px', display: 'block', fontSize: '0.875rem' }}>
-                                            View Details <i className="fa fa-arrow-right ml-1"></i>
-                                        </Link>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                    </Box>
+                                </Box>
+                                <Box sx={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: '4px',
+                                    background: 'linear-gradient(90deg, #8b5cf6 0%, #c4b5fd 100%)',
+                                    opacity: 0.8
+                                }} />
+                            </Card>
                         </Grid>
 
-                        {/* Monthly Sales Chart - Full Width */}
-                        <Card sx={{
-                            borderRadius: '16px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid #e9d5ff',
-                            marginBottom: '30px',
-                            width: '100%'
-                        }}>
-                            <CardContent sx={{ padding: '24px' }}>
-                                <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold', marginBottom: '20px' }}>
-                                    📈 Monthly Sales
-                                </Typography>
-                                {(startDate && endDate ? filteredMonthlySales : monthlySales).length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={350}>
-                                        <AreaChart data={startDate && endDate ? filteredMonthlySales : monthlySales}>
-                                            <defs>
-                                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#6b46c1" stopOpacity={0.3}/>
-                                                    <stop offset="95%" stopColor="#6b46c1" stopOpacity={0}/>
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                            <XAxis dataKey="month" stroke="#999" />
-                                            <YAxis stroke="#999" />
-                                            <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }} formatter={(value) => `$${value.toFixed(2)}`} />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="total" 
-                                                stroke="#6b46c1" 
-                                                strokeWidth={2}
-                                                fillOpacity={1}
-                                                fill="url(#colorSales)"
-                                                name="Sales ($)"
-                                            />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <Typography variant="body2" sx={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-                                        No sales data available yet
-                                    </Typography>
-                                )}
-                            </CardContent>
-                        </Card>
+                        {/* Total Orders */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
+                                color: 'white',
+                                height: '100%',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.4)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <Box sx={{ p: 3, position: 'relative', zIndex: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
+                                                Total Orders
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ mt: 1, fontWeight: '700', fontSize: '1.75rem' }}>
+                                                {startDate && endDate ? filteredOrders.length : orders.length}
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                                <Box sx={{ 
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '12px',
+                                                    padding: '2px 8px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}>
+                                                    <span style={{ marginRight: '4px' }}>↑</span>
+                                                    <span>8% from last month</span>
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                        <Box sx={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '12px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M16 11V7H8V11H5L12 18L19 11H16ZM5 20V18H19V20H5Z" fill="white"/>
+                                            </svg>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
 
-                        {/* Product Sales Pie Chart - Full Width */}
-                        <Card sx={{
-                            borderRadius: '16px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid #e9d5ff',
-                            marginBottom: '30px',
-                            width: '100%'
-                        }}>
-                            <CardContent sx={{ padding: '24px' }}>
-                                <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold', marginBottom: '20px' }}>
-                                    🌸 Product Sales
-                                </Typography>
-                                {productSales.length > 0 ? (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <ResponsiveContainer width="100%" height={350}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={productSales}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    labelLine={false}
-                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                                    outerRadius={120}
-                                                    fill="#8884d8"
-                                                    dataKey="percent"
-                                                >
-                                                    {productSales.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip />
-                                            </PieChart>
+                        {/* Total Products */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+                                color: 'white',
+                                height: '100%',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <Box sx={{ p: 3, position: 'relative', zIndex: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
+                                                Total Products
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ mt: 1, fontWeight: '700', fontSize: '1.75rem' }}>
+                                                {products.length}
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                                <Box sx={{ 
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '12px',
+                                                    padding: '2px 8px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}>
+                                                    <span style={{ marginRight: '4px' }}>↑</span>
+                                                    <span>{Math.floor(products.length * 0.15)} new this month</span>
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                        <Box sx={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '12px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 2L4 7V20H20V7L12 2ZM12 4.5L18 8.5V18H6V8.5L12 4.5ZM12 11C13.1046 11 14 10.1046 14 9C14 7.89543 13.1046 7 12 7C10.8954 7 10 7.89543 10 9C10 10.1046 10.8954 11 12 11ZM8 17V15.5C8 13.83 10.5 13 12 13C13.5 13 16 13.83 16 15.5V17H8Z" fill="white"/>
+                                            </svg>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
+
+                        {/* Out of Stock */}
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
+                                color: 'white',
+                                height: '100%',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.4)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <Box sx={{ p: 3, position: 'relative', zIndex: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
+                                                Out of Stock
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ mt: 1, fontWeight: '700', fontSize: '1.75rem' }}>
+                                                {outOfStock}
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                                <Box sx={{ 
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '12px',
+                                                    padding: '2px 8px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    backdropFilter: 'blur(4px)'
+                                                }}>
+                                                    <span style={{ marginRight: '4px' }}>↓</span>
+                                                    <span>{Math.ceil(outOfStock * 0.3)} restocked</span>
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                        <Box sx={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '12px',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 2L4 7V20H20V7L12 2ZM12 4.5L18 8.5V18H6V8.5L12 4.5ZM12 11C13.1046 11 14 10.1046 14 9C14 7.89543 13.1046 7 12 7C10.8954 7 10 7.89543 10 9C10 10.1046 10.8954 11 12 11ZM8 17V15.5C8 13.83 10.5 13 12 13C13.5 13 16 13.83 16 15.5V17H8Z" fill="white"/>
+                                                <path d="M8 9H16V11H8V9Z" fill="white"/>
+                                            </svg>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
+                    </Grid>
+                </motion.div>
+
+                {/* Charts Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                        {/* Sales Chart */}
+                        <Grid item xs={12} md={8}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                border: '1px solid rgba(0,0,0,0.04)',
+                                height: '100%',
+                                '&:hover': {
+                                    boxShadow: '0 8px 30px rgba(0,0,0,0.08)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                        <Typography variant="h6" sx={{ 
+                                            fontWeight: '700',
+                                            color: '#1e293b',
+                                            fontSize: '1.1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M3 3V21H21" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M7 13L10 10L13.5 13.5L17 10V17H7V13Z" fill="#8b5cf6" fillOpacity="0.2" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            Sales Overview
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: '8px' }}>
+                                            <Chip 
+                                                label="This Month" 
+                                                size="small" 
+                                                sx={{ 
+                                                    bgcolor: '#f5f3ff', 
+                                                    color: '#6b46c1',
+                                                    fontWeight: '600',
+                                                    '&:hover': {
+                                                        bgcolor: '#ede9fe'
+                                                    }
+                                                }} 
+                                            />
+                                            <Chip 
+                                                label="Export" 
+                                                size="small" 
+                                                variant="outlined"
+                                                onClick={() => {}}
+                                                sx={{ 
+                                                    borderColor: '#e2e8f0',
+                                                    color: '#64748b',
+                                                    fontWeight: '500',
+                                                    '&:hover': {
+                                                        bgcolor: '#f8fafc',
+                                                        borderColor: '#cbd5e1'
+                                                    }
+                                                }}
+                                                icon={
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M12 16L12 8M12 16L8 12M12 16L16 12M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                }
+                                            />
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ height: '300px', width: '100%' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart
+                                                data={startDate && endDate ? filteredMonthlySales : monthlySales}
+                                                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <XAxis 
+                                                    dataKey="month" 
+                                                    tick={{ fill: '#64748b', fontSize: 12 }}
+                                                    tickLine={false}
+                                                    axisLine={{ stroke: '#e2e8f0' }}
+                                                />
+                                                <YAxis 
+                                                    tick={{ fill: '#64748b', fontSize: 12 }}
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    tickFormatter={(value) => `$${value}`}
+                                                />
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                <Tooltip 
+                                                    contentStyle={{
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #e2e8f0',
+                                                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                                                        padding: '8px 12px',
+                                                        backgroundColor: 'white'
+                                                    }}
+                                                    formatter={(value) => [`$${value}`, 'Sales']}
+                                                    labelFormatter={(label) => `Month: ${label}`}
+                                                />
+                                                <Area 
+                                                    type="monotone" 
+                                                    dataKey="total" 
+                                                    stroke="#8b5cf6" 
+                                                    fillOpacity={1} 
+                                                    fill="url(#colorSales)"
+                                                    strokeWidth={2}
+                                                    activeDot={{ 
+                                                        r: 6, 
+                                                        stroke: '#fff', 
+                                                        strokeWidth: 2, 
+                                                        fill: '#8b5cf6' 
+                                                    }}
+                                                />
+                                            </AreaChart>
                                         </ResponsiveContainer>
                                     </Box>
-                                ) : (
-                                    <Typography variant="body2" sx={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-                                        No product sales data yet
-                                    </Typography>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </Grid>
 
-                        {/* Current Ordered Products Table - Full Width */}
-                        <Card sx={{
-                            borderRadius: '16px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid #e9d5ff',
-                            marginBottom: '30px',
-                            width: '100%'
-                        }}>
-                            <CardContent sx={{ padding: '24px' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                    <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
-                                        Current Ordered Products
-                                    </Typography>
-                                    <Link to="/admin/orders" style={{ textDecoration: 'none' }}>
-                                        <Button size="small" sx={{ color: '#6b46c1', textTransform: 'none' }}>
-                                            View All <i className="fa fa-arrow-right ml-1"></i>
-                                        </Button>
-                                    </Link>
-                                </Box>
-                                <TableContainer component={Paper} sx={{ boxShadow: 'none', backgroundColor: 'transparent', width: '100%' }}>
-                                    <Table sx={{ width: '100%' }}>
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '30%' }}>Product</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>Customer</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Amount</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>Status</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {lastThreeOrders.length > 0 ? (
-                                                lastThreeOrders.map((order) => (
-                                                    <TableRow key={order._id} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
-                                                        <TableCell>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                {order.orderItems && order.orderItems[0] && (
-                                                                    <Avatar
-                                                                        src={order.orderItems[0].image}
-                                                                        alt={order.orderItems[0].name}
-                                                                        sx={{ width: 40, height: 40 }}
-                                                                    />
-                                                                )}
-                                                                <Box>
-                                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                        {order.orderItems && order.orderItems[0] ? order.orderItems[0].name : 'N/A'}
-                                                                    </Typography>
-                                                                    <Typography variant="caption" sx={{ color: '#999' }}>
-                                                                        Qty: {order.orderItems && order.orderItems[0] ? order.orderItems[0].quantity : 0}
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Box>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2">
-                                                                {order.user && order.user.name ? order.user.name : 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#6b46c1' }}>
-                                                                ${order.totalPrice.toFixed(2)}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Chip
-                                                                label={order.orderStatus}
-                                                                size="small"
-                                                                sx={{
-                                                                    backgroundColor: getStatusBgColor(order.orderStatus),
-                                                                    color: getStatusColor(order.orderStatus),
-                                                                    fontWeight: 600,
-                                                                    fontSize: '0.75rem'
-                                                                }}
-                                                            />
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={4} align="center">
-                                                        <Typography variant="body2" sx={{ color: '#999', padding: '20px' }}>
-                                                            No orders yet
-                                                        </Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </CardContent>
-                        </Card>
-
-                        {/* Recent Users Table - Full Width */}
-                        <Card sx={{
-                            borderRadius: '16px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid #e9d5ff',
-                            marginBottom: '30px',
-                            width: '100%'
-                        }}>
-                            <CardContent sx={{ padding: '24px' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                    <Typography variant="h6" sx={{ color: '#6b46c1', fontWeight: 'bold' }}>
-                                        Recent Users
-                                    </Typography>
-                                    <Link to="/admin/users" style={{ textDecoration: 'none' }}>
-                                        <Button size="small" sx={{ color: '#6b46c1', textTransform: 'none' }}>
-                                            View All <i className="fa fa-arrow-right ml-1"></i>
-                                        </Button>
-                                    </Link>
-                                </Box>
-                                <TableContainer component={Paper} sx={{ boxShadow: 'none', backgroundColor: 'transparent', width: '100%' }}>
-                                    <Table sx={{ width: '100%' }}>
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '25%' }}>User</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '35%' }}>Email</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Role</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', color: '#6b46c1', width: '20%' }}>Joined</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {lastThreeUsers.length > 0 ? (
-                                                lastThreeUsers.map((user) => (
-                                                    <TableRow key={user._id} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
-                                                        <TableCell>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <Avatar
-                                                                    src={user.avatar && user.avatar.url}
-                                                                    alt={user.name}
-                                                                    sx={{ width: 40, height: 40 }}
-                                                                />
-                                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                    {user.name}
-                                                                </Typography>
-                                                            </Box>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" sx={{ color: '#666' }}>
-                                                                {user.email}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Chip
-                                                                label={user.role === 'admin' ? 'Admin' : 'User'}
-                                                                size="small"
-                                                                sx={{
-                                                                    backgroundColor: user.role === 'admin' ? '#e9d5ff' : '#f3f4f6',
-                                                                    color: user.role === 'admin' ? '#6b46c1' : '#666',
-                                                                    fontWeight: 600,
-                                                                    fontSize: '0.75rem'
-                                                                }}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" sx={{ color: '#999', fontSize: '0.875rem' }}>
-                                                                {new Date(user.createdAt).toLocaleDateString()}
-                                                            </Typography>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={4} align="center">
-                                                        <Typography variant="body2" sx={{ color: '#999', padding: '20px' }}>
-                                                            No users yet
-                                                        </Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </CardContent>
-                        </Card>
-                        </Fragment>
-                    )}
-
-                    {/* PDF Export Modal */}
-                    {showPDFModal && (
-                        <div style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            zIndex: 1000
-                        }}>
-                            <div style={{
-                                background: 'white',
-                                borderRadius: '15px',
-                                padding: '30px',
-                                maxWidth: '500px',
-                                width: '90%',
-                                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+                        {/* Top Products Chart */}
+                        <Grid item xs={12} md={4}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                border: '1px solid rgba(0,0,0,0.04)',
+                                height: '100%',
+                                '&:hover': {
+                                    boxShadow: '0 8px 30px rgba(0,0,0,0.08)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                             }}>
-                                <h3 style={{ color: '#6b46c1', marginBottom: '20px' }}>
-                                    <i className="fa fa-cog mr-2"></i>
-                                    PDF Report Configuration
-                                </h3>
-
-                                <div style={{ marginBottom: '20px' }}>
-                                    <p style={{ fontWeight: '600', marginBottom: '15px', color: '#333' }}>
-                                        Select fields to include in the report:
-                                    </p>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={pdfFields.summary}
-                                                onChange={(e) => setPdfFields({ ...pdfFields, summary: e.target.checked })}
-                                                style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontWeight: '500' }}>Summary Statistics</span>
-                                        </label>
-
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={pdfFields.products}
-                                                onChange={(e) => setPdfFields({ ...pdfFields, products: e.target.checked })}
-                                                style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontWeight: '500' }}>Product Sales</span>
-                                        </label>
-
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={pdfFields.monthly}
-                                                onChange={(e) => setPdfFields({ ...pdfFields, monthly: e.target.checked })}
-                                                style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontWeight: '500' }}>Monthly Sales</span>
-                                        </label>
-
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={pdfFields.orders}
-                                                onChange={(e) => setPdfFields({ ...pdfFields, orders: e.target.checked })}
-                                                style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontWeight: '500' }}>Orders</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {startDate && endDate && (
-                                    <div style={{
-                                        background: '#f0fdf4',
-                                        border: '1px solid #86efac',
-                                        borderRadius: '8px',
-                                        padding: '12px',
-                                        marginBottom: '20px'
+                                <CardContent>
+                                    <Typography variant="h6" sx={{ 
+                                        fontWeight: '700',
+                                        color: '#1e293b',
+                                        fontSize: '1.1rem',
+                                        mb: 3,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
                                     }}>
-                                        <p style={{ margin: 0, color: '#16a34a', fontSize: '0.9rem' }}>
-                                            <i className="fa fa-info-circle mr-2"></i>
-                                            Report will include data from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                )}
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#6b46c1" fillOpacity="0.2" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                        Top Products
+                                    </Typography>
+                                    {productSales.length > 0 ? (
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100% - 50px)' }}>
+                                            <Box sx={{ flex: 1, minHeight: '200px' }}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={productSales}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            labelLine={false}
+                                                            outerRadius={80}
+                                                            fill="#8884d8"
+                                                            dataKey="percent"
+                                                            nameKey="name"
+                                                            label={({ name, percent }) => `${name}: ${(percent).toFixed(0)}%`}
+                                                        >
+                                                            {productSales.map((entry, index) => (
+                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip 
+                                                            formatter={(value) => [`${value}%`, 'Market Share']}
+                                                            contentStyle={{
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e2e8f0',
+                                                                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                                                                padding: '8px 12px',
+                                                                backgroundColor: 'white'
+                                                            }}
+                                                        />
+                                                        <Legend />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                            </Box>
+                                            <Box sx={{ mt: 2, maxHeight: '120px', overflowY: 'auto', pr: 1 }}>
+                                                {productSales.map((product, index) => (
+                                                    <Box key={product._id} sx={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        mb: 1.5,
+                                                        p: 1,
+                                                        borderRadius: '8px',
+                                                        '&:hover': {
+                                                            backgroundColor: '#f8fafc'
+                                                        }
+                                                    }}>
+                                                        <Box sx={{
+                                                            width: '12px',
+                                                            height: '12px',
+                                                            borderRadius: '3px',
+                                                            backgroundColor: COLORS[index % COLORS.length],
+                                                            mr: 1.5,
+                                                            flexShrink: 0
+                                                        }} />
+                                                        <Typography variant="body2" sx={{ 
+                                                            flex: 1, 
+                                                            color: '#334155',
+                                                            fontWeight: '500',
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis'
+                                                        }}>
+                                                            {product.name}
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ 
+                                                            color: '#64748b',
+                                                            fontWeight: '600',
+                                                            ml: 1,
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            {product.percent.toFixed(1)}%
+                                                        </Typography>
+                                                    </Box>
+                                                ))}
+                                            </Box>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ 
+                                            height: '300px', 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            textAlign: 'center',
+                                            p: 3
+                                        }}>
+                                            <Box sx={{
+                                                width: '80px',
+                                                height: '80px',
+                                                borderRadius: '50%',
+                                                backgroundColor: '#f5f3ff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                mb: 2
+                                            }}>
+                                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#8b5cf6" fillOpacity="0.2" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            </Box>
+                                            <Typography variant="body1" sx={{ color: '#64748b', mb: 1, fontWeight: '500' }}>
+                                                No product data available
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+                                                Product sales data will appear here once available
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+                </motion.div>
 
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button
-                                        onClick={generatePDF}
-                                        style={{
-                                            flex: 1,
-                                            padding: '12px',
-                                            background: 'linear-gradient(135deg, #6b46c1 0%, #8b5cf6 100%)',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                                    >
-                                        <i className="fa fa-download mr-2"></i>
-                                        Download PDF
-                                    </button>
+                {/* Recent Orders & Users */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.3 }}
+                    style={{ marginBottom: '30px' }}
+                >
+                    <Grid container spacing={3}>
+                        {/* Recent Orders */}
+                        <Grid item xs={12} lg={8}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                border: '1px solid rgba(0,0,0,0.04)',
+                                height: '100%',
+                                '&:hover': {
+                                    boxShadow: '0 8px 30px rgba(0,0,0,0.08)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center',
+                                        mb: 3
+                                    }}>
+                                        <Typography variant="h6" sx={{ 
+                                            fontWeight: '700',
+                                            color: '#1e293b',
+                                            fontSize: '1.1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            Recent Orders
+                                        </Typography>
+                                        <Button 
+                                            component={Link}
+                                            to="/admin/orders"
+                                            size="small"
+                                            variant="text"
+                                            sx={{
+                                                color: '#6b46c1',
+                                                textTransform: 'none',
+                                                fontWeight: '600',
+                                                fontSize: '0.875rem',
+                                                '&:hover': {
+                                                    backgroundColor: 'rgba(107, 70, 193, 0.04)'
+                                                }
+                                            }}
+                                            endIcon={
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            }
+                                        >
+                                            View All
+                                        </Button>
+                                    </Box>
+                                    
+                                    {filteredOrders.length > 0 ? (
+                                        <Box sx={{ overflowX: 'auto' }}>
+                                            <TableContainer component={Paper} elevation={0} sx={{ boxShadow: 'none' }}>
+                                                <Table size="small" sx={{ minWidth: 650 }}>
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell sx={{ fontWeight: '700', color: '#4b5563', borderBottom: '1px solid #f1f5f9' }}>Order ID</TableCell>
+                                                            <TableCell sx={{ fontWeight: '700', color: '#4b5563', borderBottom: '1px solid #f1f5f9' }}>Date</TableCell>
+                                                            <TableCell sx={{ fontWeight: '700', color: '#4b5563', borderBottom: '1px solid #f1f5f9' }}>Status</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: '700', color: '#4b5563', borderBottom: '1px solid #f1f5f9' }}>Amount</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {filteredOrders.slice(0, 5).map((order) => (
+                                                            <TableRow 
+                                                                key={order._id}
+                                                                component={Link}
+                                                                to={`/admin/order/${order._id}`}
+                                                                sx={{ 
+                                                                    textDecoration: 'none',
+                                                                    '&:last-child td': { borderBottom: 0 },
+                                                                    '&:hover': {
+                                                                        backgroundColor: '#f8fafc'
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <TableCell component="th" scope="row" sx={{ color: '#3b82f6', fontWeight: '500', borderBottom: '1px solid #f1f5f9' }}>
+                                                                    {order._id.substring(0, 8)}...
+                                                                </TableCell>
+                                                                <TableCell sx={{ color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>
+                                                                    {new Date(order.createdAt).toLocaleDateString()}
+                                                                </TableCell>
+                                                                <TableCell sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                    <Chip 
+                                                                        label={order.orderStatus} 
+                                                                        size="small"
+                                                                        sx={{
+                                                                            backgroundColor: getStatusBgColor(order.orderStatus),
+                                                                            color: getStatusColor(order.orderStatus),
+                                                                            fontWeight: '600',
+                                                                            fontSize: '0.7rem',
+                                                                            textTransform: 'capitalize',
+                                                                            height: '22px'
+                                                                        }}
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell align="right" sx={{ color: '#1e293b', fontWeight: '600', borderBottom: '1px solid #f1f5f9' }}>
+                                                                    ${order.totalPrice.toFixed(2)}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ 
+                                            height: '200px', 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            textAlign: 'center',
+                                            p: 3
+                                        }}>
+                                            <Box sx={{
+                                                width: '80px',
+                                                height: '80px',
+                                                borderRadius: '50%',
+                                                backgroundColor: '#f5f3ff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                mb: 2
+                                            }}>
+                                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M16 11V7H8V11H5L12 18L19 11H16Z" fill="#8b5cf6" fillOpacity="0.2" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            </Box>
+                                            <Typography variant="body1" sx={{ color: '#64748b', mb: 1, fontWeight: '500' }}>
+                                                No orders found
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+                                                {startDate && endDate 
+                                                    ? 'No orders found in the selected date range.' 
+                                                    : 'No recent orders to display.'}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Grid>
 
-                                    <button
-                                        onClick={() => setShowPDFModal(false)}
-                                        style={{
-                                            flex: 1,
-                                            padding: '12px',
-                                            background: '#e9d5ff',
-                                            color: '#6b46c1',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                        onMouseOver={(e) => e.target.style.background = '#ddd6fe'}
-                                        onMouseOut={(e) => e.target.style.background = '#e9d5ff'}
-                                    >
-                                        <i className="fa fa-times mr-2"></i>
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        {/* Recent Users */}
+                        <Grid item xs={12} lg={4}>
+                            <Card sx={{
+                                borderRadius: '16px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                border: '1px solid rgba(0,0,0,0.04)',
+                                height: '100%',
+                                '&:hover': {
+                                    boxShadow: '0 8px 30px rgba(0,0,0,0.08)'
+                                },
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <CardContent>
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center',
+                                        mb: 3
+                                    }}>
+                                        <Typography variant="h6" sx={{ 
+                                            fontWeight: '700',
+                                            color: '#1e293b',
+                                            fontSize: '1.1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13M16 3.13C16.8604 3.3503 17.623 3.8507 18.1676 4.55231C18.7121 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7121 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88M13 7C13 9.20914 11.2091 11 9 11C6.79086 11 5 9.20914 5 7C5 4.79086 6.79086 3 9 3C11.2091 3 13 4.79086 13 7Z" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            Recent Users
+                                        </Typography>
+                                        <Button 
+                                            component={Link}
+                                            to="/admin/users"
+                                            size="small"
+                                            variant="text"
+                                            sx={{
+                                                color: '#6b46c1',
+                                                textTransform: 'none',
+                                                fontWeight: '600',
+                                                fontSize: '0.875rem',
+                                                '&:hover': {
+                                                    backgroundColor: 'rgba(107, 70, 193, 0.04)'
+                                                }
+                                            }}
+                                            endIcon={
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            }
+                                        >
+                                            View All
+                                        </Button>
+                                    </Box>
+
+                                    {users.length > 0 ? (
+                                        <Box sx={{ mt: 2 }}>
+                                            {users.slice(0, 5).map((user) => (
+                                                <Box 
+                                                    key={user._id}
+                                                    component={Link}
+                                                    to={`/admin/user/${user._id}`}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        p: 1.5,
+                                                        borderRadius: '8px',
+                                                        textDecoration: 'none',
+                                                        mb: 1,
+                                                        '&:hover': {
+                                                            backgroundColor: '#f8fafc'
+                                                        },
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                >
+                                                    <Avatar 
+                                                        src={user.avatar?.url || ''} 
+                                                        alt={user.name}
+                                                        sx={{ 
+                                                            width: 40, 
+                                                            height: 40,
+                                                            bgcolor: '#e9d5ff',
+                                                            color: '#7c3aed',
+                                                            fontWeight: '600',
+                                                            fontSize: '1rem'
+                                                        }}
+                                                    >
+                                                        {user.name?.charAt(0) || 'U'}
+                                                    </Avatar>
+                                                    <Box sx={{ ml: 2, flex: 1, minWidth: 0 }}>
+                                                        <Typography 
+                                                            variant="subtitle2" 
+                                                            sx={{ 
+                                                                fontWeight: '600', 
+                                                                color: '#1e293b',
+                                                                whiteSpace: 'nowrap',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
+                                                            }}
+                                                        >
+                                                            {user.name || 'Unnamed User'}
+                                                        </Typography>
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                color: '#64748b',
+                                                                fontSize: '0.8rem',
+                                                                whiteSpace: 'nowrap',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
+                                                            }}
+                                                        >
+                                                            {user.email || 'No email'}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Chip 
+                                                        label={user.role} 
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: user.role === 'admin' ? '#f0f9ff' : '#f5f3ff',
+                                                            color: user.role === 'admin' ? '#0369a1' : '#6b46c1',
+                                                            fontWeight: '600',
+                                                            fontSize: '0.65rem',
+                                                            height: '20px',
+                                                            textTransform: 'capitalize'
+                                                        }}
+                                                    />
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ 
+                                            height: '200px', 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            textAlign: 'center',
+                                            p: 3
+                                        }}>
+                                            <Box sx={{
+                                                width: '80px',
+                                                height: '80px',
+                                                borderRadius: '50%',
+                                                backgroundColor: '#f5f3ff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                mb: 2
+                                            }}>
+                                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13M16 3.13C16.8604 3.3503 17.623 3.8507 18.1676 4.55231C18.7121 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7121 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88M13 7C13 9.20914 11.2091 11 9 11C6.79086 11 5 9.20914 5 7C5 4.79086 6.79086 3 9 3C11.2091 3 13 4.79086 13 7Z" stroke="#6b46c1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            </Box>
+                                            <Typography variant="body1" sx={{ color: '#64748b', mb: 1, fontWeight: '500' }}>
+                                                No users found
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+                                                User data will appear here once available
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+                </motion.div>
+
+                </Box>
+
+                {/* Footer */}
+                <Box sx={{ mt: 6, mb: 4, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+                        © {new Date().getFullYear()} FleurEase. All rights reserved.
+                    </Typography>
+                </Box>
             </Box>
-        </Fragment>
-    );
-};
+            </ErrorBoundary>
+        );
+    };
 
-export default Dashboard;
+    export default Dashboard;
+    

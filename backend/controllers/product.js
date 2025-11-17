@@ -246,17 +246,34 @@ exports.productSales = async (req, res, next) => {
       
     }
     
+    // Calculate total sales across all products
+    const grandTotal = sales.reduce((sum, item) => sum + item.total, 0);
+    
+    // Ensure grandTotal is not zero to avoid division by zero
+    if (grandTotal === 0) {
+        return res.status(200).json({
+            success: true,
+            totalPercentage: [],
+            sales: [],
+            totalSales
+        })
+    }
+    
     let totalPercentage = {}
     totalPercentage = sales.map(item => {
-         
-        percent = Number (((item.total/totalSales[0].total) * 100).toFixed(2))
-        total =  {
+        // Normalize percentage to sum to 100% - store as decimal (0-1)
+        const percent = Number((item.total / grandTotal).toFixed(4))
+        return {
             name: item._id.product,
-            percent
+            percent: Math.min(percent, 1) // Cap at 1 (100%)
         }
-        return total
-    }) 
-     console.log(totalPercentage)
+    })
+    
+    // Verify total sums to approximately 1
+    const totalPercent = totalPercentage.reduce((sum, item) => sum + item.percent, 0);
+    console.log('Total percentage sum:', totalPercent, 'Items:', totalPercentage.length);
+    console.log(totalPercentage)
+    
     res.status(200).json({
         success: true,
         totalPercentage,

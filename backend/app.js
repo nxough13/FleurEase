@@ -10,7 +10,15 @@ const category = require('./routes/category');
 
 app.use(express.json({limit:'50mb'}));
 app.use(express.urlencoded({limit: "50mb", extended: true }));
-app.use(cors());
+// Configure CORS with specific options
+const corsOptions = {
+    origin: 'http://localhost:5173', // Frontend URL
+    credentials: true, // Allow credentials (cookies, authorization headers)
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(cookieParser());
 
 app.use('/api/v1', products);
