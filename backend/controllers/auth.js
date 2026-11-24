@@ -169,59 +169,7 @@ exports.googleLogin = async (req, res, next) => {
     }
 };
 
-exports.facebookLogin = async (req, res, next) => {
-    try {
-        const { email, name, facebookId, avatar } = req.body;
 
-        console.log('Facebook login request:', { email, name });
-
-        // Check if user already exists
-        let user = await User.findOne({ email });
-
-        if (user) {
-            // Check if user is suspended
-            if (user.isSuspended) {
-                return res.status(403).json({ 
-                    success: false,
-                    message: `Your account has been suspended. Reason: ${user.suspensionReason || 'Policy violation'}` 
-                })
-            }
-            // User exists, just login
-            console.log('Existing user found, logging in:', user._id);
-        } else {
-            // Create new user with Facebook data
-            console.log('Creating new user from Facebook data');
-            
-            user = await User.create({
-                name,
-                email,
-                password: Math.random().toString(36).slice(-8) + facebookId, // Random password (won't be used)
-                avatar: {
-                    public_id: `facebook_${facebookId}`,
-                    url: avatar || 'https://via.placeholder.com/150'
-                },
-                facebookId: facebookId,
-                isVerified: true // Facebook users are auto-verified
-            });
-
-            console.log('New user created:', user._id);
-        }
-
-        const token = user.getJwtToken();
-
-        return res.status(200).json({
-            success: true,
-            user,
-            token
-        });
-    } catch (error) {
-        console.error('Facebook login error:', error);
-        return res.status(500).json({
-            success: false,
-            message: error.message || 'Facebook login failed'
-        });
-    }
-};
 
 exports.loginUser = async (req, res, next) => {
     const { email, password } = req.body;
@@ -278,7 +226,7 @@ exports.forgotPassword = async (req, res, next) => {
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
     // Create reset password url
-    const resetUrl = `${req.protocol}://localhost:5173/password/reset/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/password/reset/${resetToken}`;
     const message = `Your password reset token is as follow:\n\n${resetUrl}\n\nIf you have not requested this email, then ignore it.`
     try {
         await sendEmail({

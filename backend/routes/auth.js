@@ -6,7 +6,6 @@ const {
     registerUser,
     loginUser,
     googleLogin,
-    facebookLogin,
     forgotPassword,
     resetPassword,
     verifyEmail,
@@ -29,7 +28,6 @@ const {isAuthenticatedUser, authorizeRoles} = require('../middlewares/auth')
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/google-login', googleLogin);
-router.post('/facebook-login', facebookLogin);
 router.get('/verify-email/:token', verifyEmail);
 router.post('/password/forgot', forgotPassword);
 router.put('/password/reset/:token', resetPassword);

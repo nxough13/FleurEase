@@ -3,13 +3,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCm1luQ9QTdZf3T6lVm4uvRnxHOge1AwgI",
-    authDomain: "fleurease-e18ea.firebaseapp.com",
-    projectId: "fleurease-e18ea",
-    storageBucket: "fleurease-e18ea.firebasestorage.app",
-    messagingSenderId: "235554798693",
-    appId: "1:235554798693:web:625e49247db69e3ae7da8c",
-    measurementId: "G-6NYM7NE7PJ"
+    apiKey: import.meta.env.VITE_APP_API_KEY,
+    authDomain: import.meta.env.VITE_APP_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_APP_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_APP_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_APP_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_APP_APP_ID,
 };
 
 // Initialize Firebase

@@ -8,7 +8,6 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { authenticate, getUser } from '../../Utils/helpers';
 import { signInWithGoogle } from '../../firebase';
-import FacebookLogin from '@greatsumini/react-facebook-login';
 
 // Validation Schema
 const loginSchema = Yup.object().shape({
@@ -106,49 +105,8 @@ const Login = () => {
         }
     };
 
-    const handleFacebookLogin = async (response) => {
-        console.log('Facebook response:', response);
-        
-        if (response?.id) {
-            try {
-                setLoading(true);
-                
-                const config = {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                };
 
-                const { data } = await axios.post(
-                    `${import.meta.env.VITE_API}/facebook-login`,
-                    {
-                        email: response.email,
-                        name: response.name,
-                        facebookId: response.id,
-                        avatar: response.picture?.data?.url || `https://graph.facebook.com/${response.id}/picture?type=large`
-                    },
-                    config
-                );
 
-                authenticate(data, () => {
-                    toast.success('Facebook Sign-In successful! Welcome 🌸');
-                    
-                    if (data.user.role === 'admin') {
-                        navigate('/admin/dashboard');
-                    } else {
-                        navigate(`/${redirect}`);
-                    }
-                });
-            } catch (error) {
-                console.error('Facebook Sign-In Error:', error);
-                toast.error(error.response?.data?.message || 'Facebook Sign-In failed. Please try again.');
-                setLoading(false);
-            }
-        } else {
-            console.error('Facebook login cancelled or failed:', response);
-            toast.error('Facebook Sign-In was cancelled.');
-        }
-    };
 
     return (
         <Fragment>
@@ -342,38 +300,26 @@ const Login = () => {
                                         </button>
 
                                         {/* Facebook Login Button */}
-                                        <FacebookLogin
-                                            appId={import.meta.env.VITE_FACEBOOK_APP_ID || "1234567890"}
-                                            onSuccess={handleFacebookLogin}
-                                            onFail={(error) => {
-                                                console.error('Facebook Login Failed:', error);
-                                                toast.error('Facebook login failed');
+                                        <button
+                                            type="button"
+                                            onClick={() => toast.info('Facebook login is currently unavailable.')}
+                                            className="btn btn-block py-3"
+                                            style={{
+                                                backgroundColor: '#1877f2',
+                                                color: 'white',
+                                                borderRadius: '25px',
+                                                fontWeight: 'bold',
+                                                border: 'none',
+                                                fontSize: '1rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '10px'
                                             }}
-                                            fields="name,email,picture"
-                                            render={({ onClick }) => (
-                                                <button
-                                                    type="button"
-                                                    onClick={onClick}
-                                                    className="btn btn-block py-3"
-                                                    style={{
-                                                        backgroundColor: '#1877f2',
-                                                        color: 'white',
-                                                        borderRadius: '25px',
-                                                        fontWeight: 'bold',
-                                                        border: 'none',
-                                                        fontSize: '1rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '10px'
-                                                    }}
-                                                    disabled={loading}
-                                                >
-                                                    <i className="fab fa-facebook-f"></i>
-                                                    Sign in with Facebook
-                                                </button>
-                                            )}
-                                        />
+                                        >
+                                            <i className="fab fa-facebook-f"></i>
+                                            Sign in with Facebook
+                                        </button>
 
                                         <div className="text-center mt-4" style={{ color: 'white' }}>
                                             Don't have an account?{' '}

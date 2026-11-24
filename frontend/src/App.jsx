@@ -52,7 +52,7 @@ function App() {
         <Header />
         <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<div className="container container-fluid"><Home /></div>} />
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
